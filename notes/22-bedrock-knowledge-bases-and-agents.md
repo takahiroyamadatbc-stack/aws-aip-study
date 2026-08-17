@@ -124,6 +124,7 @@ aws bedrock-agent-runtime retrieve-and-generate \
 - Knowledge Basesは、Agentに紐づけられる知識ソースの1つとして扱われる。Agentが「この質問にはKB検索が必要」と判断した場合に自動でRetrieveを呼び出す構成が可能
 - 単体のRAG（KB単体でRetrieveAndGenerate）と、Agent経由のRAG（Agentが動的にKB呼び出しを判断）は別物として区別して問われることがある
 - Agentそのものの構成要素（基盤モデル・インストラクション・Action Group・KBの紐づけ）は後述の「Bedrock Agents」を参照
+- 作成したAgentを本番環境で運用するための実行基盤（デプロイ・記憶・認可・可観測性）については[23-bedrock-agentcore.md](23-bedrock-agentcore.md)を参照
 
 ## GraphRAG（Amazon Neptune）
 

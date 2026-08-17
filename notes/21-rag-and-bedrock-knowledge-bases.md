@@ -177,8 +177,9 @@ aws bedrock-agent-runtime retrieve-and-generate \
 
 ### Bedrock Agentsとの関係
 
-- Knowledge BasesはAgentの「アクショングループ」の1つとして紐付けられる。Agentが「この質問にはKB検索が必要」と判断した場合に自動でRetrieveを呼び出す構成が可能
+- Knowledge Basesは、Agentに紐づけられる知識ソースの1つとして扱われる。Agentが「この質問にはKB検索が必要」と判断した場合に自動でRetrieveを呼び出す構成が可能
 - 単体のRAG（KB単体でRetrieveAndGenerate）と、Agent経由のRAG（Agentが動的にKB呼び出しを判断）は別物として区別して問われることがある
+- Agentそのものの構成要素（基盤モデル・インストラクション・Action Group・KBの紐づけ）は後述の「Bedrock Agents」を参照
 
 ## 高度なRAG技術
 
@@ -211,6 +212,62 @@ aws bedrock-agent-runtime retrieve-and-generate \
 
 **使い分けの目安**: 単純な「関連文書を探して要約する」タイプの質問には通常のベクトルRAGで十分。「複数のエンティティ間の関係を辿らないと答えが出せない」マルチホップ質問が多いドメインでは、GraphRAG（Neptune Analytics）の採用を検討する。
 
+## Bedrock Agents
+
+Bedrock Agentsは、FMに「外部アクションの実行」と「知識検索」を組み合わせた**自律的なタスク遂行**をさせるための仕組み。RAG（Knowledge Bases）は「情報を検索して回答する」機能に閉じるのに対し、Agentは検索に加えてAPI呼び出し（社内システムの更新など）まで含めた一連のタスクを、ユーザーの1つの発話から**自分で計画・実行**できる点が違い。構成要素は大きく4つ。
+
+| 構成要素 | 役割 | 設定内容の要点 |
+|----------|------|------------------|
+| 基盤モデルの選択 | Agentの「頭脳」。次に何をすべきか（Action Groupを呼ぶか／KB検索するか／このまま回答するか）を判断するオーケストレーションを担う | どのFM（推論プロファイル含む）を使うか選択する。複雑な判断・多段のツール選択が必要ならClaude Sonnet系などの高性能モデル、単純な処理でレイテンシ・コストを優先するならHaiku系などの軽量モデルを選ぶ。**Agentのオーケストレーション用モデルと、紐づけたKB単体のRetrieveAndGenerateで使うモデルは別々に設定できる**（独立した設定値） |
+| インストラクションの記述 | Agentの役割・振る舞い・判断基準を定義するシステムプロンプト相当のテキスト | ①Agentのペルソナ・対応範囲、②いつAction GroupやKnowledge Baseを使うべきかの判断基準、③出力フォーマット・トーン、④やってはいけないこと、を明確に書く。曖昧な指示はオーケストレーション精度の低下（誤ったアクション選択・KB未使用など）に直結する |
+| Action Groupの定義 | Agentが実行できる外部アクション（API呼び出し）の集合 | アクションとパラメータを**OpenAPIスキーマ**または**Function定義（シンプルな関数リスト）**のどちらかで定義し、実行主体としてLambda関数を紐づける（もしくはLambdaを介さず呼び出しパラメータをそのままアプリ側に返す「Return control」も選択可）。Agentは各アクションの`description`を読んで「今回のタスクにはどのアクションが必要か」を判断するため、descriptionの書き方が精度を左右する |
+| Knowledge Baseの紐づけ | Agentが参照できる社内知識（RAG）を追加する | 既存のBedrock Knowledge Baseを1つ以上紐づけられる。紐づけ時に指定する`description`（このKBが何の情報を持つか）をAgentが読んで「このタスクにはこのKBを使うべきか」を判断する。複数のKBを紐づけて用途別に使い分けさせることも可能 |
+
+### オーケストレーションの流れ（ReActパターン）
+
+Agentは以下のループ（ReAct: Reasoning + Acting）を、最終回答が出せると判断するまで繰り返す。
+
+```
+ユーザー入力
+  → (インストラクション + 利用可能なAction Group/KBのdescriptionを踏まえて)
+     Agentが「次に何をすべきか」を推論
+  → 必要ならAction Group呼び出し（Lambda実行）またはKnowledge Base検索（Retrieve）を実行
+  → 実行結果を踏まえて再度「次に何をすべきか」を推論（複数回繰り返すこともある）
+  → 十分な情報が揃ったら最終回答を生成
+```
+
+### 作成・変更の反映（Prepare / Alias）
+
+- Agentの設定（インストラクション・Action Group・KB紐づけ）を変更しただけでは本番トラフィックに反映されない。**Prepare操作**でDRAFTバージョンをテスト可能な状態にビルドする必要がある
+- 本番運用では、DRAFTを直接使わず**Alias**（特定バージョンへのポインタ）を発行し、Aliasに対してリクエストを送るのが基本パターン（新バージョンの検証→切り替えを安全に行うため）
+
+```bash
+# Agent作成
+aws bedrock-agent create-agent \
+  --agent-name my-support-agent \
+  --foundation-model anthropic.claude-3-5-sonnet-20241022-v2:0 \
+  --instruction "あなたはカスタマーサポート担当です。注文状況の確認はorder-lookupアクションを使い、製品仕様の質問はKnowledge Baseを検索してから回答してください。" \
+  --agent-resource-role-arn <AGENT_ROLE_ARN>
+
+# Action Groupの追加（Lambda + Function定義の例）
+aws bedrock-agent create-agent-action-group \
+  --agent-id <AGENT_ID> \
+  --agent-version DRAFT \
+  --action-group-name order-lookup \
+  --action-group-executor '{"lambda": "<LAMBDA_ARN>"}' \
+  --function-schema '{"functions": [{"name": "get_order_status", "description": "注文IDから配送状況を取得する", "parameters": {"order_id": {"type": "string", "required": true}}}]}'
+
+# Knowledge Baseの紐づけ
+aws bedrock-agent associate-agent-knowledge-base \
+  --agent-id <AGENT_ID> \
+  --agent-version DRAFT \
+  --knowledge-base-id <KB_ID> \
+  --description "製品マニュアル・FAQを検索する"
+
+# DRAFTの変更をビルド
+aws bedrock-agent prepare-agent --agent-id <AGENT_ID>
+```
+
 ## 試験でのひっかけポイント整理
 
 - 「S3にファイルを置けば自動的にKnowledge Basesの検索対象になる」→ 誤り。Ingestion Job（同期）を明示的に実行する必要がある
@@ -219,3 +276,7 @@ aws bedrock-agent-runtime retrieve-and-generate \
 - 「チャンク戦略はどれを選んでも精度に差は出ない」→ 誤り。ドキュメントの構造（表が多い、長文か短文か等）によって適したチャンク戦略は異なる
 - 「Embeddingモデルはクエリ側とインデックス側で別々のものを使ってよい」→ 誤り。同一のEmbeddingモデルでベクトル空間を揃える必要がある
 - 「RAGを使えばFineTuningは不要になる」→ 一概に誤り。RAGは知識注入（What）に強く、口調・出力フォーマットの一貫性（How）はFineTuningの方が向く場合がある。両者は目的が異なり併用もされる
+- 「AgentにKnowledge Baseを紐づけられるのは1つだけ」→ 誤り。複数のKBを紐づけ、それぞれのdescriptionをAgentが読んで用途別に使い分けられる
+- 「Action GroupはOpenAPIスキーマでしか定義できない」→ 誤り。シンプルなFunction定義（関数リスト形式）でも定義できる
+- 「Agentの設定を変更すると即座に本番トラフィックへ反映される」→ 誤り。DRAFTの変更はPrepare操作でビルドし直す必要があり、本番運用は特定バージョンを指すAliasに対して行うのが基本
+- 「Agentが使うオーケストレーション用のFMと、紐づけたKB単体のRetrieveAndGenerateで使うFMは常に同じものになる」→ 誤り。両者は独立して設定できる別々のモデル選択

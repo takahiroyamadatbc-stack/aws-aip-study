@@ -53,6 +53,15 @@ Strands Agentsは単一エージェントだけでなく、複数エージェン
 | Graph | Agent/処理ステップをノードとした有向グラフで、実行順序・分岐を明示的に定義する | 実行フローを厳密に制御したい場合（LangGraphに近い発想） |
 | Workflow | あらかじめ定義した手順（ステップ列）に沿ってAgentを順次実行する | 定型的な多段処理（データ取得→要約→レビュー等） |
 
+## A2A（Agent2Agent）プロトコル（軽く）
+
+上記のマルチエージェントパターンは同一プロセス/同一フレームワーク内での連携が前提だが、**異なるベンダー・異なるフレームワークで作られたAgent同士**を連携させたい場合に使うオープンプロトコルがA2A。
+
+- 元々Googleが提唱し、現在はLinux Foundation配下で管理されているオープン規格（特定ベンダー専用ではない）
+- **MCPとの役割の違い**が試験で問われやすい：MCPは「Agent ⇔ ツール/データソース」を接続するプロトコル、A2Aは「Agent ⇔ 別のAgent」を接続するプロトコル。両者は競合ではなく組み合わせて使うもの
+- 各Agentは**Agent Card**（自分が持つスキル・エンドポイント・認証方式などをJSONで公開するメタデータ）を提示し、呼び出し側はそれを見てタスクを依頼する
+- Strands Agentsは A2A サーバーとして自Agentを公開する／外部のA2A互換Agentをツールとして呼び出す、の両方をネイティブにサポートする
+
 ## デプロイ
 
 Strands Agents自体はフレームワークなので、実行環境は選ばない。AgentCore Runtimeへのデプロイも`bedrock-agentcore-starter-toolkit`から行える。
@@ -70,3 +79,4 @@ agentcore launch
 - 「Strands Agentsで作ったエージェントはAgentCore Runtime以外では動かせない」→ 誤り。ローカル・Lambda・ECS等どこでも実行可能で、AgentCore Runtimeはデプロイ先の選択肢の1つに過ぎない
 - 「Strandsのツールは必ずOpenAPIスキーマで定義する必要がある」→ 誤り。`@tool`デコレータを付けたPython関数をそのままツールとして渡せる
 - 「マルチエージェント構成はGraphパターンしかサポートしない」→ 誤り。Agents as Tools、Swarm、Graph、Workflowなど複数のパターンをサポートする
+- 「A2AはMCPと同じもの（呼び方が違うだけ）」→ 誤り。MCPはAgentとツール/データソースを繋ぐプロトコル、A2Aは異なるフレームワーク・ベンダーのAgent同士を繋ぐプロトコルで、役割が異なる

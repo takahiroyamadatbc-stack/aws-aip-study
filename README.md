@@ -99,6 +99,7 @@ aws resourcegroupstaggingapi get-resources \
 | Note | テーマ | 状態 |
 |------|--------|------|
 | [20-cross-region-inference.md](notes/20-cross-region-inference.md) | Cross-Region Inference（推論プロファイル、Geographic/Global、SCPとの衝突） | 未読 |
-| [21-rag-and-bedrock-knowledge-bases.md](notes/21-rag-and-bedrock-knowledge-bases.md) | RAGの基本（Indexing/Retrieval/Generation）、AWSサービス比較、Bedrock Knowledge Bases深掘り | 未読 |
+| [21-rag-basics.md](notes/21-rag-basics.md) | RAGの基本（Indexing/Retrieval/Generation）、AWSサービス比較、高度なRAG技術（クエリ前処理、GraphRAG） | 未読 |
+| [22-bedrock-knowledge-bases-and-agents.md](notes/22-bedrock-knowledge-bases-and-agents.md) | Bedrock Knowledge Bases深掘り（データソース、パーサー、チャンク戦略、API）、GraphRAG実装、Bedrock Agents | 未読 |
 
 状態は `未読` / `済` のいずれかを記載する。新しいNoteを追加したら表に1行追加する。

@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# CDK
+cdk.out/
+*.d.ts
+*.js
+
+# SAM
+.aws-sam/
+
+# 使い捨て検証用ディレクトリ（Labの試行錯誤置き場、コミット対象外）
+scratch/*
+!scratch/.gitkeep
+
+# secrets / logs
+.env
+*.log

@@ -1,6 +1,6 @@
 # Amazon Bedrock AgentCore
 
-Bedrock Agentsの構成要素（基盤モデル・インストラクション・Action Group・KB紐づけ）は[22-bedrock-knowledge-bases-and-agents.md](22-bedrock-knowledge-bases-and-agents.md)を参照。このノートはAgentCoreを扱う。
+Bedrock Agentsの構成要素（基盤モデル・インストラクション・Action Group・KB紐づけ）は[22-bedrock-knowledge-bases-and-agents.md](22-bedrock-knowledge-bases-and-agents.md)を参照。エージェントのロジックをコードとして実装するOSSフレームワークについては[24-strands-agents-sdk.md](24-strands-agents-sdk.md)を参照。このノートはAgentCoreを扱う。
 
 ## Bedrock AgentsとAgentCoreは何が違うのか
 

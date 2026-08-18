@@ -102,5 +102,7 @@ aws resourcegroupstaggingapi get-resources \
 | [21-rag-basics.md](notes/21-rag-basics.md) | RAGの基本（Indexing/Retrieval/Generation）、AWSサービス比較、高度なRAG技術（クエリ前処理、GraphRAG） | 未読 |
 | [22-bedrock-knowledge-bases-and-agents.md](notes/22-bedrock-knowledge-bases-and-agents.md) | Bedrock Knowledge Bases深掘り（データソース、パーサー、チャンク戦略、API）、GraphRAG実装、Bedrock Agents | 未読 |
 | [30-bedrock-guardrails-and-reliability.md](notes/30-bedrock-guardrails-and-reliability.md) | Bedrock Guardrails（フィルタ機能、多層防御、Grounding）、構造化出力・類似度検証・多重生成等その他の信頼性向上手段 | 未読 |
+| [40-prompt-caching.md](notes/40-prompt-caching.md) | Prompt Caching（プレフィックスマッチの仕組み、Anthropicネイティブ/Bedrock Converse/InvokeModelの構文差、最小トークン数・TTL・料金体系） | 未読 |
+| [50-model-evaluation.md](notes/50-model-evaluation.md) | Bedrock Model Evaluation（自動評価/人間評価/RAG評価の使い分け、組み込み指標、LLM-as-a-judge） | 未読 |
 
 状態は `未読` / `済` のいずれかを記載する。新しいNoteを追加したら表に1行追加する。

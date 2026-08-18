@@ -30,6 +30,38 @@
 
 収集したデータをどの形式（CSV/JSON/Avro/Parquet/ORC）で保管・受け渡しするかの比較・使い分けは[10-data-formats.md](10-data-formats.md)を参照。
 
+### データラベリング: Amazon SageMaker Ground Truth
+
+教師あり学習では、収集した生データに正解ラベルを付与する工程が必要になる。**Amazon SageMaker Ground Truth**は、このデータラベリング（アノテーション）を行うためのマネージドサービス。
+
+**できること**
+
+- 画像（分類、物体検出のバウンディングボックス、セマンティックセグメンテーション）、テキスト（分類、固有表現抽出）、動画（オブジェクトトラッキング）、3D点群（自動運転向けのLiDARデータ等）など、多様なデータ種別に対応した**組み込みラベリングテンプレート**を提供
+- カスタムのラベリングUI・ワークフローも独自に定義可能
+
+**ラベリングワークフォース（誰がラベル付けをするか）**
+
+| ワークフォース種別 | 内容 |
+|------|------|
+| Amazon Mechanical Turk | 不特定多数のクラウドワーカーによる労働力。低コストだが機微情報の扱いには不向き |
+| Private workforce | 自社の従業員・契約社員など、社内でアクセスを限定したチーム。機密データ・専門知識が必要なラベリングに向く |
+| Vendor workforce | AWS Marketplaceで調達する、AWSが審査済みの専門ベンダー企業 |
+
+**Automated Data Labeling（自動ラベリング / Active Learning）**
+
+- 全件を人間がラベリングするのではなく、まず一部を人間がラベリングしてモデルを学習させ、そのモデルで残りのデータを自動ラベリングする
+- モデルの予測に対する**確信度が低いサンプルだけを人間のラベラーに再度回す**（Active Learning）ことで、人手によるラベリング件数とコストを削減しつつ精度を確保する仕組み
+- **アノテーションコンセンサス**: 同じデータに複数のラベラーを割り当て、一致度を見て品質を担保する機能もある
+
+**Ground Truth Plus**
+
+- 通常のGround Truthはワークフォースの手配・管理をユーザー側が行うのに対し、**Ground Truth Plus**はAWSが専門のラベリングチーム・プロジェクト運用までを含めて提供する**フルマネージド版**。ラベリング業務自体をAWSにアウトソースしたい場合に選ぶ
+
+**出力とパイプラインへの接続**
+
+- ラベル付け結果は**manifest file（JSON Lines形式）**としてS3に出力され、そのままSageMakerのトレーニングジョブの入力として利用できる
+- Ground Truth自体はモデルの学習は行わない（あくまで**教師データを作る工程**であり、③モデルトレーニングとは役割が別）
+
 ## ② データの前処理と分析
 
 ### 探索的データ分析（EDA）
@@ -47,6 +79,19 @@
 AWSでは**SageMaker Studio の Data Wrangler**が中心的なツールで、データ取り込み時に自動生成される「Data Quality and Insights Report」で欠損率・相関ヒートマップ・ターゲットリーケージ候補・クラス不均衡を一括可視化できる。バイアスの定量評価（Class Imbalance、Difference in Proportions of Labels等の**学習前バイアスメトリクス**）は**SageMaker Clarify**が担当領域で、これはEDA段階（モデルを学習する前）に実施する点が試験の狙われどころ。学習後バイアス（post-training bias）や説明可能性（SHAP値）はモデル評価段階のClarifyの役割で別物（詳細は[31-responsible-ai-core-dimensions.md](31-responsible-ai-core-dimensions.md)）。
 
 ### データの前処理
+
+以下の変換（クレンジング、エンコーディング、スケーリング等）は、AWS上では主に**SageMaker Data Wrangler**と**SageMaker Processing**のどちらかで実行する。両者は競合ではなく、「Data Wranglerで試行錯誤して作ったフローを、Processingでスケール実行する」という補完関係にあることが多い。
+
+| 観点 | SageMaker Data Wrangler | SageMaker Processing |
+|------|--------------------------|------------------------|
+| 位置づけ | SageMaker Studio内の**GUI/ノーコード**データ準備ツール | **コードベース**でデータ処理ジョブをマネージドインフラ上で実行する仕組み |
+| 操作方法 | 300以上のビルトイン変換をUI上でクリック操作、またはカスタム数式（Pandas/PySpark相当）を入力 | 自前のPython/Spark/scikit-learnスクリプトをコンテナ上で実行（独自コンテナも可） |
+| 向いている段階 | 探索的データ分析〜前処理方針の**試行錯誤（インタラクティブ）** | 前処理・特徴量エンジニアリング・モデル評価を**再現可能なジョブとして自動化・スケール実行** |
+| データ規模 | インタラクティブに扱える中規模データが中心（プレビューはサンプリング） | 大規模データを分散処理可能（インスタンス数・タイプを指定してスケールアウト） |
+| EDA支援 | Data Quality and Insights Reportで欠損率・相関・不均衡等を自動可視化 | 機能なし（スクリプト側で自前実装するか、EDAはWrangler側で済ませてから移行） |
+| パイプライン統合 | 作成した変換フロー（.flow）をProcessing Job/Pipelineのステップとしてエクスポート可能 | SageMaker Pipelinesのステップとして直接組み込みやすい（コード資産としてバージョン管理しやすい） |
+| 必要スキル | 低い（GUI操作が中心、コード不要でも一通りの変換が可能） | Python/Sparkでの実装スキルが必要 |
+| 典型的な使い方 | データサイエンティストがまず手元でデータの特性を掴み、変換方針を決める | 決まった変換ロジックを本番パイプラインに組み込み、定期実行・大規模データに対して繰り返し実行する |
 
 #### データクレンジング
 
@@ -87,7 +132,37 @@ AWSでは**SageMaker Studio の Data Wrangler**が中心的なツールで、デ
 - **特徴量選択**: フィルタ法（相関係数・カイ二乗検定・相互情報量で単変量にスコアリング）、ラッパー法（RFEのようにモデル性能を見ながら反復的に選択）、埋め込み法（Lasso正則化の係数、木モデルのfeature importanceで選択）
 - **次元削減**: PCA等。多重共線性の緩和・過学習抑制・学習の高速化に寄与するが、変換後の軸は解釈性を失う点がトレードオフ
 
-**SageMaker Feature Store**は、前処理・特徴量エンジニアリングの成果物（特徴量）をチーム・パイプライン横断で再利用するためのリポジトリ。Online Store（低レイテンシのリアルタイム推論用ルックアップ）とOffline Store（S3 + Glue Data Catalog上の、学習・バッチ推論用の履歴データ）の2種類を持ち、同じ特徴量定義を学習時と推論時の両方で参照することで**training-serving skew**（学習時と推論時で特徴量の計算方法がズレる問題）を防ぐのが最大の存在意義。Data Wranglerで作った変換フローはそのままFeature Storeへのエクスポート、またはSageMaker Processing Jobでのスケーラブルな実行（scikit-learnコンテナ/Sparkコンテナ）につなげられる。
+#### SageMaker Feature Store
+
+**解決する課題**: 特徴量エンジニアリングのロジックをチーム・モデルごとに個別実装すると、①同じ特徴量を何度も作り直す無駄、②学習時（バッチ）と推論時（リアルタイム）で計算方法が微妙にズレる**training-serving skew**、が発生する。Feature Storeはこれらを解消するための、特徴量を一元管理する**リポジトリ（中央集権的なストア）**。
+
+**コアとなる概念**
+
+| 概念 | 内容 |
+|------|------|
+| Feature Group | 特徴量のスキーマ（列定義）とデータ本体をまとめた管理単位。DBのテーブルに相当 |
+| Record Identifier | Feature Group内でレコードを一意に識別するキー（例: `customer_id`） |
+| Event Time | その特徴量の値がいつ時点のものかを示すタイムスタンプ列。**Point-in-Time（時点指定）での正しい特徴量取得**に必須 |
+| Feature Definitions | 各列の名前・型（String/Fractional/Integral）の定義 |
+
+**Online Store と Offline Store**
+
+| 観点 | Online Store | Offline Store |
+|------|---------------|----------------|
+| 用途 | リアルタイム推論時に、最新の特徴量を**低レイテンシ（ミリ秒単位）**で1レコード取得 | 学習・バッチ推論・分析向けに、**大量の履歴データ**をまとめて取得 |
+| 保持データ | 各Record Identifierごとの**最新値のみ** | 過去分も含めた**全履歴**（追記型） |
+| バックエンド | 低レイテンシKVS相当のマネージドストレージ | S3 + AWS Glue Data Catalog（Athenaで直接クエリ可能） |
+| アクセス方法 | `GetRecord`等のAPI呼び出し | Athena/SQLクエリ、SageMaker Processing/Training Jobからの読み込み |
+| 有効化 | 個別に有効化可能（コスト最適化のため不要なら無効化できる） | 個別に有効化可能（両方同時に有効化するのが一般的） |
+
+**主なポイント**
+
+- **Ingestion（取り込み）**: Data Wranglerの変換フローから直接エクスポート、またはSDK（`PutRecord`）・SageMaker Processing/Pipelinesのジョブからバッチ/ストリーミングで取り込める。Online/Offline両方を有効化しておけば、1回のIngestionで両ストアに自動反映される
+- **Point-in-Time結合（時点整合性）**: Event Timeを使うことで、「学習データのラベル発生時点でその特徴量が実際にどんな値だったか」を正しく再現できる（未来の情報が混入するリーク＝**target leakage**の防止に直結）
+- **再利用性**: 一度Feature Groupとして登録した特徴量は、他のモデル・他のチームのパイプラインからも検索・参照できる（Feature Store内の検索機能でカタログ的に使える）
+- **学習と推論の整合性**: 同じFeature Group（同じ計算ロジックで作られた特徴量）をOffline Store経由で学習、Online Store経由で推論時に参照することで、training-serving skewを構造的に防止する
+
+Data Wranglerで作った変換フローはそのままFeature Storeへのエクスポート、またはSageMaker Processing Jobでのスケーラブルな実行（scikit-learnコンテナ/Sparkコンテナ）につなげられる。
 
 ### 試験でのひっかけポイント整理
 
@@ -97,3 +172,6 @@ AWSでは**SageMaker Studio の Data Wrangler**が中心的なツールで、デ
 - 「SageMaker Clarifyのバイアス検出はモデル学習後にしか使えない」→ 誤り。Clarifyは学習前（pre-training bias、EDA段階でのクラス不均衡等の検出）と学習後（post-training bias）の両方をカバーする
 - 「Feature StoreのOnline StoreとOffline Storeはどちらも同じ用途」→ 誤り。Online Storeは推論時の低レイテンシ参照、Offline Storeは学習・バッチ処理向けの履歴データ蓄積、と役割が異なる
 - 「対数変換はどんな分布にも無条件に適用できる」→ 誤り。0や負値を含む場合は`log1p`やBox-Cox/Yeo-Johnson等の工夫が必要
+- 「Data WranglerとSageMaker Processingはどちらか一方を選べば十分」→ 誤り。Data Wranglerは探索・試行錯誤向けのGUIツール、Processingは決まった処理をスケール実行する基盤で、役割が異なる（Wranglerで作ったフローをProcessing/Pipelineにエクスポートして本番運用する、という連携がよく問われる）
+- 「Automated Data Labelingは全件を自動でラベル付けする機能である」→ 誤り。モデルが確信度の高いサンプルのみ自動ラベリングし、確信度の低いサンプルは人間のラベラーに回すActive Learningの仕組み。人手を完全に排除するわけではない
+- 「Ground TruthとGround Truth Plusは同じサービスである」→ 誤り。Ground Truthはワークフォースの手配・管理をユーザーが行うのに対し、Ground Truth PlusはAWSがラベリングチーム運用まで担うフルマネージド版

@@ -104,5 +104,7 @@ aws resourcegroupstaggingapi get-resources \
 | [30-bedrock-guardrails-and-reliability.md](notes/30-bedrock-guardrails-and-reliability.md) | Bedrock Guardrails（フィルタ機能、多層防御、Grounding）、構造化出力・類似度検証・多重生成等その他の信頼性向上手段 | 未読 |
 | [40-prompt-caching.md](notes/40-prompt-caching.md) | Prompt Caching（プレフィックスマッチの仕組み、Anthropicネイティブ/Bedrock Converse/InvokeModelの構文差、最小トークン数・TTL・料金体系） | 未読 |
 | [50-model-evaluation.md](notes/50-model-evaluation.md) | Bedrock Model Evaluation（自動評価/人間評価/RAG評価の使い分け、組み込み指標、LLM-as-a-judge） | 未読 |
+| [51-bedrock-api-errors.md](notes/51-bedrock-api-errors.md) | Bedrock APIエラー（429/400/503/403/404）の原因と対処、リトライ設計の指針 | 未読 |
+| [52-context-prompt-issues.md](notes/52-context-prompt-issues.md) | コンテキスト・プロンプトの問題と対処（コンテキストウィンドウオーバーフロー、出力途中終了、モデルバージョン差異、プロバイダー間スキーマ差異） | 未読 |
 
 状態は `未読` / `済` のいずれかを記載する。新しいNoteを追加したら表に1行追加する。

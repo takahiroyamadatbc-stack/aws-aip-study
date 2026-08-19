@@ -1,5 +1,31 @@
 # Amazon SageMaker AI と機械学習パイプライン
 
+## 機能索引
+
+このノートに登場するSageMaker関連の機能・サービスを、MLパイプラインのどの段階で使うかで一覧化する。詳細は各段階のセクション、またはリンク先を参照。
+
+| サービス・機能 | 役割 | 登場する段階 |
+|---|---|---|
+| **SageMaker Ground Truth** | データラベリング（アノテーション）。人手＋Active Learningによる自動ラベリング | ①データ収集 |
+| **SageMaker Ground Truth Plus** | ラベリングチーム運用までAWSが担うフルマネージド版Ground Truth | ①データ収集 |
+| **SageMaker Data Wrangler** | GUI/ノーコードでのデータ探索（EDA）・前処理の試行錯誤 | ②前処理と分析 |
+| **SageMaker Processing** | コードベースの前処理・後処理・評価ジョブをスケール実行 | ②前処理と分析／④モデル評価 |
+| **SageMaker Feature Store** | 特徴量の一元管理（Online Store＝低レイテンシ推論用、Offline Store＝学習・分析用） | ②前処理と分析 |
+| **SageMaker Clarify** | バイアス検出（pre-training／post-training）、SHAP値による説明可能性 | ②前処理と分析（pre-training bias）／④モデル評価（post-training bias、Explainability） |
+| **SageMaker Automatic Model Tuning（HPO）** | ハイパーパラメータの自動探索（Grid/Random/Bayesian/Hyperband） | ③モデルトレーニング |
+| **SageMaker Experiments** | トライアル（Run）ごとのハイパーパラメータ・メトリクス・成果物の記録・比較 | ③トレーニング／④評価 |
+| **SageMaker Model Registry** | モデルのバージョン管理・承認ステータス（Pending/Approved/Rejected）によるデプロイゲート | ④モデル評価〜⑤デプロイ |
+| **SageMaker Model Cards** | モデルの目的・評価結果・既知の制約のドキュメント化 | ④モデル評価 |
+| **SageMaker Endpoint** | リアルタイム推論のマネージドホスティング（常時起動） | ⑤デプロイと推論 |
+| **SageMaker Batch Transform** | バッチ推論（ジョブ実行中のみ課金） | ⑤デプロイと推論 |
+| **SageMaker Neo + AWS IoT Greengrass** | エッジデバイス向けのモデルコンパイル・配布 | ⑤デプロイと推論 |
+| **SageMaker Inference Recommender** | デプロイ前の負荷テストによるインスタンスタイプ選定 | ⑤デプロイと推論（デプロイ前） |
+| **AWS Compute Optimizer** | 稼働中リソース（SageMakerエンドポイント含む全AWSリソース）の継続的なrightsizing | ⑤デプロイと推論（デプロイ後） |
+| **SageMaker Model Monitor** | 本番稼働中のドリフト検知（Data Quality／Model Quality／Bias Drift／Feature Attribution Drift） | 運用（MLOpsのCT起点） |
+| **SageMaker Pipelines** | 前処理〜デプロイの一連のワークフローをDAGとしてコード定義・自動実行 | 運用（MLOpsのCI/CD/CTの中核） |
+| **SageMaker Projects** | CodePipeline/CodeBuild等と統合したCI/CDのMLOpsテンプレート | 運用（MLOps） |
+| **SageMaker Role Manager** | ペルソナ別の最小権限IAM実行ロールをウィザードで作成 | 運用（アクセス管理・ガバナンス） |
+
 ## MLパイプラインの流れ
 
 機械学習のワークフローは、以下の5段階を順に進む。

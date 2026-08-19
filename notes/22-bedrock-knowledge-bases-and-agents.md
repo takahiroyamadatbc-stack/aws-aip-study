@@ -192,6 +192,32 @@ aws bedrock-agent associate-agent-knowledge-base \
 aws bedrock-agent prepare-agent --agent-id <AGENT_ID>
 ```
 
+## Bedrock Prompt Management と Flows
+
+Agentsがモデル自身に「次に何をすべきか」を判断させる自律的な仕組みなのに対し、Prompt ManagementとFlowsは**プロンプト・処理ステップの流れを人間があらかじめ設計する**、よりロコード寄りのオーケストレーション機能。
+
+### Prompt Management
+
+- プロンプトテンプレート（変数を埋め込んだ文言＋使用するモデル＋推論パラメータ）を、Bedrock側のリソースとしてバージョン管理する機能（`CreatePrompt` / `CreatePromptVersion` / `GetPrompt` 等のAPI）
+- 1つのプロンプトに対して複数の**バリアント**（モデル・テンプレート文言・推論パラメータが異なる組み合わせ）を持たせられる。A/Bで試したい複数のプロンプト案を、同じプロンプトリソースの中で管理する用途に使える
+
+### Flows
+
+- プロンプトノード・条件分岐ノード（Condition）・Knowledge Baseノード・Lambda関数ノード・S3等のストレージノードなどを、有向グラフとしてビジュアルに繋いでワークフローを構築するオーケストレーション機能
+- **Prompt node**は、Prompt Managementで管理しているプロンプト（バリアント含む）をFlowの1ノードとして呼び出せるノード種別
+- Prompt nodeには、`Converse`/`InvokeModel`呼び出しに`guardrailConfig`を渡すのと同様に、**ノード単位でGuardrailを関連付けられる**。これにより、Flow内の特定ノードの入出力にだけGuardrailの評価（コンテンツフィルタ・拒否トピック・PII検出等）を適用する構成が組める
+
+### Guardrailsの介入とCloudWatch連携
+
+- Bedrock Guardrailsは呼び出しごとに、介入回数やポリシー種別ごとのブロック数などをCloudWatchメトリクスとして送信する
+- そのメトリクスに対してCloudWatch Alarmを設定し、しきい値超過時にSNS通知等へつなげられる（GuardrailsのモニタリングとアラートはFlows特有の機能ではなく、Guardrails単体の標準機能）
+
+**誤解しやすい点**: Guardrailsが評価するのは「その1回の入出力テキストが有害か／PIIを含むか／拒否トピックに触れているか」であり、**属性グループ（性別・年齢・出身地域等）ごとに出力を分類・比較する機能はGuardrails自体には存在しない**。「属性グループ間でスコアやブロック率にどれだけ差があるか」を見たい場合、呼び出し側が属性グループの情報を保持し、ログやカスタムメトリクスのディメンションとして別途付与する実装が必要になる。
+
+### SageMaker Model MonitorはBedrock呼び出しに直接は適用できない
+
+[26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)のSageMaker Model Monitorは、**SageMakerエンドポイントにデプロイしたモデル**の入出力を対象にした監視サービスであり、Bedrockのマネージド基盤モデル呼び出し（SageMakerエンドポイントを経由しない呼び出し）には標準では統合されない。Bedrockの呼び出しログをSageMaker Model Monitorが読み込める形式に変換する橋渡しが必要になる。
+
 ## 試験でのひっかけポイント整理
 
 - 「S3にファイルを置けば自動的にKnowledge Basesの検索対象になる」→ 誤り。Ingestion Job（同期）を明示的に実行する必要がある
@@ -200,3 +226,5 @@ aws bedrock-agent prepare-agent --agent-id <AGENT_ID>
 - 「Action GroupはOpenAPIスキーマでしか定義できない」→ 誤り。シンプルなFunction定義（関数リスト形式）でも定義できる
 - 「Agentの設定を変更すると即座に本番トラフィックへ反映される」→ 誤り。DRAFTの変更はPrepare操作でビルドし直す必要があり、本番運用は特定バージョンを指すAliasに対して行うのが基本
 - 「Agentが使うオーケストレーション用のFMと、紐づけたKB単体のRetrieveAndGenerateで使うFMは常に同じものになる」→ 誤り。両者は独立して設定できる別々のモデル選択
+- 「Bedrock Guardrailsは属性グループ間の出力の偏り（公平性メトリクス）を自動的に計算・比較してくれる」→ 誤り。Guardrailsが評価するのは1回の入出力テキスト単位の有害性・PII・拒否トピック等であり、複数呼び出しを属性グループ別に集計・比較する機能はネイティブには持たない
+- 「SageMaker Model MonitorはBedrockのモデル呼び出しにもそのまま適用できる」→ 誤り。Model MonitorはSageMakerエンドポイントを対象にした監視サービスで、Bedrockのマネージド呼び出しには標準で統合されない

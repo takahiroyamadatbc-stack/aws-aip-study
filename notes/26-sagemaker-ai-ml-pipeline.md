@@ -216,6 +216,66 @@ AWS特有の評価関連サービスは以下。
 - **HPOとの連携**: Automatic Model Tuningジョブが生成する多数のトライアルも、それぞれ1つのRunとして自動的にExperiment配下に記録される
 - **系譜追跡（Lineage）**: どのデータセット・前処理コード・アルゴリズムから、どのモデルが生成されたかを追跡できる（モデルの再現性・監査対応の観点でも有用）
 
+### SageMaker Clarify
+
+**解決する課題**: モデルの精度指標（Accuracy/F1等）が良くても、「特定の属性グループに対してだけ不利な予測をしていないか」「なぜその予測に至ったのか」は、精度指標だけでは分からない。Clarifyは**バイアス検出**と**説明可能性（Explainability）**を定量的なメトリクスとして算出するサービス（Responsible AIにおける役割の全体像は[31-responsible-ai-core-dimensions.md](31-responsible-ai-core-dimensions.md)参照）。
+
+**実施タイミングは2段階**（②のEDA段階と④の評価段階の両方に登場する点が試験の狙われどころ）
+
+| タイミング | 呼び方 | 何を見るか |
+|------|------|------|
+| ②データの前処理と分析（学習前） | Pre-training bias | 学習データ自体に、属性間の偏り（ラベル分布の偏り等）がないか |
+| ④モデル評価（学習後） | Post-training bias | 学習済みモデルの**予測結果**に、属性間の偏りが出ていないか |
+
+**主なバイアスメトリクス**（すべて属性（例: 性別・年代）で分けた**facet**間の差を数値化する）
+
+| 区分 | メトリクス | 何を測るか |
+|------|------|------|
+| Pre-training | Class Imbalance（CI） | facet間のサンプル数（構成比）の偏り |
+| Pre-training | Difference in Proportions of Labels（DPL） | facet間で、正例ラベルの割合がどれだけ異なるか |
+| Post-training | Difference in Positive Proportions in Predicted Labels（DPPL） | facet間で、モデルが**予測した**正例の割合がどれだけ異なるか（DPLの予測版） |
+| Post-training | Disparate Impact（DI） | facet間の正例予測割合の**比率**（1から離れるほど偏りが大きい） |
+| Post-training | Accuracy Difference / Recall Difference | facet間で、正解率・再現率にどれだけ差があるか |
+
+- 個々のメトリクス名を丸暗記するより、「**入力データそのものの偏りを見るのがpre-training（DPL等）、モデルの予測結果の偏りを見るのがpost-training（DPPL/DI等）**」という区別がつけば試験上は十分なことが多い
+
+**説明可能性（Explainability）**
+
+- **SHAP値（SHapley Additive exPlanations）**を用いて、個々の予測に対する**特徴量ごとの寄与度**を算出する。ゲーム理論のShapley値がベースで、「その特徴量があることでモデルの予測がベースラインからどれだけ動いたか」を特徴量単位に分解する
+- グローバル（モデル全体でどの特徴量が重要か）とローカル（個々の予測1件について、どの特徴量がどう効いたか）の両方の粒度で確認できる
+- 与信審査・与信スコアリングのように「なぜこの予測になったか」の説明責任が求められるユースケースで重要になる
+
+**主なポイント**
+
+- SageMaker Studio上でレポート（Bias Report / Explainability Report）として可視化されるほか、SageMaker Processing Jobとしてパイプラインに組み込み、④の評価ステップで自動実行できる
+- 本番運用中の継続監視（Bias Drift / Feature Attribution Drift）は**SageMaker Model Monitor**が担当領域で、ClarifyはそのMonitorが使うベースライン計算・監視ロジックの提供元という関係になる（詳細は後述の「SageMaker Model Monitor」セクション参照）
+
+### SageMaker Model Registry
+
+**解決する課題**: 学習・評価を繰り返すと多数のモデルバージョンが生成されるが、これを個別管理すると「今どのバージョンが本番稼働中か」「どのバージョンがレビュー・承認済みか」が分からなくなる。Model Registryは、モデルを**カタログとしてバージョン管理し、本番デプロイ前の承認ゲートを設ける**ための仕組み。
+
+**構成要素**
+
+| 概念 | 内容 |
+|------|------|
+| Model Package Group | 同一のユースケースに対する複数バージョンのモデルをまとめる論理グループ（例:「不正検知モデル」というグループの中にv1, v2, v3...が並ぶ） |
+| Model Package（Model Version） | Model Package Group配下の個々のバージョン。モデルアーティファクト（S3上のモデルファイル）、推論コンテナイメージ、評価メトリクス、**承認ステータス**などを保持する |
+
+**承認ステータス（Approval Status）**
+
+| ステータス | 意味 |
+|------|------|
+| PendingManualApproval | デフォルト状態。レビュー・承認待ちで、まだデプロイ可能とは見なされない |
+| Approved | 承認済み。⑤のデプロイに進めてよいモデル |
+| Rejected | 却下済み。デプロイ対象から外れる |
+
+**主なポイント**
+
+- **Pipelinesとの統合**: SageMaker PipelinesのRegisterModel Stepから、パイプライン実行で生成されたモデルを自動的にModel Registryへ登録できる
+- **CI/CDのゲートとして機能**: ステータスがApprovedに変わったことをEventBridgeで検知し、本番デプロイのパイプラインを自動起動する、といったガバナンス上のゲート（人間のレビュー承認、またはCondition Stepによる自動条件判定のいずれとも組み合わせられる）として使うのが典型パターン
+- **モデル系譜との連携**: どの学習ジョブ・データセット・コードから生成されたモデルかをLineage情報と紐付けて追跡できる
+- **アカウント間共有**: Model Packageは別のAWSアカウントと共有可能で、開発アカウントで学習・登録したモデルを本番アカウントでデプロイする、といったマルチアカウント構成のMLOpsで使われる
+
 ## ⑤ モデルのデプロイと推論
 
 評価済みモデルを実際に予測結果を返せる状態にする工程。**「どこにデプロイするか（デプロイ先）」**と**「推論のリクエストパターン（リアルタイム/バッチ）」**は別軸の検討事項で、SageMaker Endpointを使う場合でも下記のリアルタイム/バッチの選択は必要になる。
@@ -353,6 +413,31 @@ MLOpsは、①〜⑤のパイプラインを**一度きりで終わらせず、�
 
 **役割分担の整理**: Pipelinesは**ワークフローの定義・実行そのもの**、Experimentsは**実行結果（メトリクス等）の記録・比較**、Model Registryは**モデルの承認・バージョン管理**を担う。三者は競合せず、Pipelines実行の中でExperimentsへの記録とModel Registryへの登録が行われる、という関係。
 
+## SageMaker Studioのアクセス管理: SageMaker Role Manager
+
+**解決する課題**: SageMaker Studio（Domain）を使い始める際、データサイエンティストやMLOpsエンジニアなど、利用者ごとに「何ができて何ができないか」を細かく制御するIAMロールを1から設計するには、IAMポリシーの専門知識と、SageMakerが要求するAPI権限の網羅的な把握が必要になる。**SageMaker Role Manager**は、この**IAM実行ロール（Execution Role）作成の敷居を下げ、最小権限（least privilege）の原則に沿ったロールをウィザード形式で素早く作れるようにする**機能。IAMそのものを置き換えるサービスではなく、あくまでIAMロール作成を支援するSageMaker Studio上のツールという位置づけ。
+
+**基本的な使い方（ウィザードの流れ）**
+
+1. **ペルソナ（役割）を選択**する。SageMakerがあらかじめ用意している定義済みペルソナには以下のようなものがある
+
+| ペルソナ | 想定する利用者 | 付与される権限の傾向 |
+|------|------|------|
+| Data Scientist | ノートブックでの分析・トレーニングジョブの実行が中心の利用者 | トレーニング/前処理ジョブの実行、S3上の学習データへのアクセス等、モデル開発に必要な範囲 |
+| MLOps Engineer | パイプライン・CI/CDの構築・運用を行う利用者 | SageMaker Pipelines、Model Registry、CodePipeline等、運用オーケストレーションに必要な範囲 |
+| Compute Cluster Administrator | トレーニング用クラスタ（HyperPod等）の管理者 | クラスタのプロビジョニング・管理に必要な範囲 |
+
+2. **ネットワークアクセス（VPCのみに制限するか等）**、**S3バケットへのアクセス範囲（特定バケットのみに限定する等）**、**追加で必要なAWSサービスへのアクセス（Ground Truth、Feature Store等）**をウィザードの質問に答える形で選択する
+3. Role Managerが、選択内容に応じた**IAMポリシー（カスタマー管理ポリシー）を自動生成**し、IAMロールとして作成する
+4. 作成したロールは、SageMaker Domain全体の**デフォルト実行ロール**として、またはUser Profile（ユーザーごと）に個別の実行ロールとして割り当てられる
+
+**主なポイント**
+
+- **最小権限をデフォルトで実現しやすくする**のが最大の狙い。ゼロからポリシーを書くと「とりあえず`AmazonSageMakerFullAccess`を付与してしまう」ような過剰権限になりがちな問題を、ペルソナ単位の絞り込みで緩和する
+- 生成されたポリシーは**IAMコンソール上で通常のカスタマー管理ポリシーとして確認・編集可能**（Role Managerで作った後も、通常のIAM運用でメンテナンスできる）
+- **既存ロールへのアタッチ**（既にあるIAMロールにSageMakerに必要な権限を追加する）と、**新規ロールの作成**の両方のフローに対応
+- あくまで**IAM実行ロールという「ヒト（または実行主体）に何を許可するか」を扱う機能**であり、モデルの学習後バイアス検出やプライバシー保護とは領域が異なる（同じガバナンス文脈でも[31-responsible-ai-core-dimensions.md](31-responsible-ai-core-dimensions.md)で扱う説明可能性・公平性とは別軸の「アクセス制御」の話）
+
 ### 試験でのひっかけポイント整理
 
 - 「正規化と標準化は同じ意味である」→ 誤り。正規化は値域を[0,1]等に収める（Min-Max）、標準化は平均0・分散1にする（Z-score）。範囲を保証するのは正規化の方
@@ -377,3 +462,4 @@ MLOpsは、①〜⑤のパイプラインを**一度きりで終わらせず、�
 - 「SageMaker PipelinesとSageMaker Experimentsは同じ機能である」→ 誤り。Pipelinesはワークフロー（Step群）の定義・実行そのものを担い、Experimentsはその実行結果（メトリクス・パラメータ）の記録・比較を担う。役割が異なるが、Pipelinesの実行はExperimentsに自動記録される形で連携する
 - 「SageMaker Model Monitorはドリフトを検知したら自動的にモデルを再学習してくれる」→ 誤り。Model Monitorはドリフトの検出のみを行い、検知後の再学習・再デプロイはEventBridge等と連携して別途構成する必要がある
 - 「Model Quality監視には正解ラベルは不要である」→ 誤り。Model Quality（モデル品質）の監視は、推論結果と後から取得した正解ラベルを突き合わせて精度指標を計算するため、ground truthラベルの収集が前提。ラベル不要で検出できるのはData Quality（データドリフト）監視の方
+- 「SageMaker Model Registryに登録されたモデルは自動的に本番デプロイされる」→ 誤り。登録直後はデフォルトでPendingManualApproval（承認待ち）状態であり、Approvedへのステータス変更（人間のレビューまたは自動条件判定）を経て初めてデプロイのゲートを通過する

@@ -1,0 +1,32 @@
+[
+  {
+    "keyPrefix": "s3://aip-002-q-business-s3-acl/dept-sales/",
+    "aclEntries": [
+      {
+        "Name": "SalesGroup",
+        "Type": "GROUP",
+        "Access": "ALLOW"
+      }
+    ]
+  },
+  {
+    "keyPrefix": "s3://aip-002-q-business-s3-acl/dept-hr/",
+    "aclEntries": [
+      {
+        "Name": "HRGroup",
+        "Type": "GROUP",
+        "Access": "ALLOW"
+      }
+    ]
+  },
+  {
+    "keyPrefix": "s3://aip-002-q-business-s3-acl/dept-finance/",
+    "aclEntries": [
+      {
+        "Name": "FinanceGroup",
+        "Type": "GROUP",
+        "Access": "ALLOW"
+      }
+    ]
+  }
+]

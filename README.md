@@ -80,6 +80,7 @@ aws resourcegroupstaggingapi get-resources \
 
 | Lab | 問題 | テーマ | ツール | 状態 | 一行結論 |
 |-----|------|--------|--------|------|----------|
+| [001-bedrock-provisioned-throughput](labs/001-bedrock-provisioned-throughput/) | 問23 | Bedrock Provisioned Throughput | CLI | 検証中 | Provisioned Throughputは購入だけでは使われず、InvokeModel/Converseのmodel-idにprovisionedModelArnを明示的に渡す必要がある |
 
 状態は `未着手` / `検証中` / `完` のいずれかを記載する。
 

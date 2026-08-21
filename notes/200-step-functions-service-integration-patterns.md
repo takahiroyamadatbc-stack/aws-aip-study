@@ -18,11 +18,13 @@ Step Functionsのリソース名（ARN）の末尾に付けるサフィックス
 
 ## waitForTaskToken によるヒューマンインザループの仕組み
 
-1. State定義で `.waitForTaskToken` サフィックス付きのリソースを指定する（例: Lambda呼び出し）
-2. 実行がこのStateに到達すると、Step Functionsは一意の**タスクトークン**を発行し、呼び出したLambda等にそのトークンを渡した上で**実行を一時停止**する
-3. Lambdaはトークンをどこかに保存（DynamoDB等）しつつ、人間向けの通知（SNS、メール、Slack等）を送る
-4. 人間がレビュー・承認操作を行うと、別のLambda（承認APIのハンドラなど）が保存しておいたトークンを使って `SendTaskSuccess`（承認/正常終了）または `SendTaskFailure`（却下/エラー）を呼ぶ
-5. Step Functionsはこのコールバックを受けてワークフローを再開する
+| ステップ | 主体 | 内容 |
+|---|---|---|
+| 1. トークン発行・一時停止 | Step Functions | `.waitForTaskToken`ステートに実行が到達すると、一意の**タスクトークン**を発行し、呼び出し先（Lambda等）にそのトークンを渡した上で**実行を一時停止**する |
+| 2. トークン保存・通知 | 呼び出されたLambda等 | トークンをDynamoDB等に保存しつつ、人間向けの通知（SNS、メール、Slack等）を送る |
+| 3. 判断 | レビュー担当者（人間） | 通知を確認し、承認/却下などの判断を行う |
+| 4. コールバック | 承認APIのハンドラ（別Lambda等） | 保存しておいたトークンを使って `SendTaskSuccess`（承認/正常終了）または `SendTaskFailure`（却下/エラー）を呼ぶ |
+| 5. 再開 | Step Functions | コールバックを受けてワークフローを再開する |
 
 ポイントは、**Step Functions自身は「誰が」「いつ」タスクトークンを返してくるかを一切関知しない**こと。人間の操作でも、外部システムのWebhookでも、コールバックさえ来れば再開する汎用的な「待ち合わせ」の仕組みであり、ヒューマンインザループはその応用例の1つに過ぎない。
 
@@ -31,6 +33,20 @@ Step Functionsのリソース名（ARN）の末尾に付けるサフィックス
 Step FunctionsにはStandard WorkflowsとExpress Workflowsの2種類があり、**`.waitForTaskToken`（および`.sync`）はStandard Workflowsでのみ使用可能**。Express Workflowsは高スループット・短時間実行（最大5分）を想定した課金モデルのため、Request Responseパターンしかサポートしない。
 
 「ヒューマンインザループを実現したい」という要件が出てきた時点で、Express Workflowsの選択肢があれば消去できる（そもそもExpressにはコールバック待機の概念がない）。
+
+## StandardとExpressのログ・実行履歴の違い
+
+「完了後もステップ単位の入出力をさかのぼって確認したい」「コンソールでグラフィカルに実行状況を見たい」という要件が出たとき、StandardとExpressで挙動が大きく異なる。
+
+| 観点 | Standard Workflows | Express Workflows |
+|---|---|---|
+| 実行履歴の保持場所 | **Step Functionsサービス自体**が保持 | Step Functions自体には（実質）保持されない |
+| 保持期間・取得方法 | 最大**90日間**、`GetExecutionHistory`などのAPIでいつでも取得可能 | 標準では取得手段なし。参照するには**CloudWatch Logsへのロギング設定を別途有効化**しておく必要がある |
+| コンソールのGraph View / Table View | 実行履歴から**各ステートの入出力・実行順序を視覚的に確認可能** | ネイティブなステップ単位の可視化機能はない。ログを見るにはCloudWatch Logs Insightsでのクエリが必要 |
+| ロギング設定（CloudWatch Logs転送） | 任意（オプトイン）。設定しなくても90日間は実行履歴自体が参照できる | 事後にステップ単位の入出力を追う唯一の手段。設定していなければ完了後に確認する術がない |
+| 想定用途 | 長時間実行・監査要件のあるワークフロー（本問のような反復ループ＋事後監査） | 高頻度・短時間（最大5分）のイベント処理。ログより速度・コスト優先 |
+
+ポイントは、**Standardは「何もしなくてもサービス自体が90日間、実行履歴を保持する」のに対し、Expressは「ロギングを明示的に有効化してCloudWatch Logsに転送しない限り、完了後に振り返る手段がない」**こと。「処理完了後も一定期間さかのぼって参照したい」という監査寄りの要件が出たら、この保持責任の違い（サービス内蔵 vs. 転送設定必須）でStandard/Expressを見分ける。
 
 ## 他サービスとの混同ポイント（試験でのひっかけ）
 
@@ -45,3 +61,4 @@ Step FunctionsにはStandard WorkflowsとExpress Workflowsの2種類があり、
 - 一時停止・再開の仕組みを**ネイティブに持つのはStep Functionsだけ**。EventBridge/Glue/SQSはいずれも「ルーティング」「ジョブ実行」「メッセージキュー」であり、コールバック待機のステート管理機能は持たない
 - Express Workflowsは`.waitForTaskToken`非対応。承認待ちのような長時間・不定時間の一時停止が必要な要件では、暗黙的にStandard Workflowsが前提になる
 - 監査要件（レビュー決定の永続保存）が出てきたら、保存先はDynamoDBやS3のような耐久性ストレージが基本。ElastiCacheのようなインメモリ層は候補から外れる
+- 「処理完了後も一定期間さかのぼってステップ単位の入出力を参照したい」→ Standard Workflowsなら**何もしなくてもサービス自体が最大90日間**実行履歴を保持しコンソールのGraph/Table Viewで見られるが、Express Workflowsは**CloudWatch Logsへのロギングを明示的に有効化しない限り事後参照の手段がない**点に注意（長文の設問で読み飛ばしやすい条件）

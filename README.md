@@ -100,7 +100,7 @@ aws resourcegroupstaggingapi get-resources \
 
 | Note | テーマ | 状態 |
 |------|--------|------|
-| [20-cross-region-inference.md](notes/20-cross-region-inference.md) | Cross-Region Inference（推論プロファイル、Geographic/Global、SCPとの衝突） | 未読 |
+| [20-cross-region-inference.md](notes/20-cross-region-inference.md) | Cross-Region Inference（推論プロファイル、Geographic/Global、SCPとの衝突、データレジデンシー要件の粒度） | 済 |
 | [21-rag-basics.md](notes/21-rag-basics.md) | RAGの基本（Indexing/Retrieval/Generation）、AWSサービス比較、高度なRAG技術（クエリ前処理、GraphRAG） | 未読 |
 | [22-bedrock-knowledge-bases-and-agents.md](notes/22-bedrock-knowledge-bases-and-agents.md) | Bedrock Knowledge Bases深掘り（データソース、パーサー、チャンク戦略、API）、GraphRAG実装、Bedrock Agents | 未読 |
 | [30-bedrock-guardrails-and-reliability.md](notes/30-bedrock-guardrails-and-reliability.md) | Bedrock Guardrails（フィルタ機能、多層防御、Grounding）、構造化出力・類似度検証・多重生成等その他の信頼性向上手段 | 未読 |

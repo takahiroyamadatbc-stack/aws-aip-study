@@ -94,6 +94,7 @@ Guardrailsの`PROMPT_ATTACK`フィルターは、モデルに渡すプロンプ�
 - **ComprehendとGuardrailsの違い**は「汎用NLP API（自分でどこに組み込むか設計する）」か「Bedrockのモデル呼び出しパイプラインに標準で統合済みのフィルタ」かの違い。Bedrockモデルを使っていてPII対策をしたいだけなら、素直にGuardrailsを使う方が実装コストが低い。Comprehendが必要になるのは、Bedrock以外のモデル・パイプラインを使っている場合や、S3ドキュメントの一括処理・カスタムエンティティ認識のように、Guardrailsの守備範囲外の要件がある場合
 - MacieはS3という**特定のデータストア**に特化したサービスであり、APIを介してリアルタイムに渡されたテキスト（例: ユーザーがチャットに入力した文字列）をその場で検査する用途には使えない（そもそもそのようなリアルタイム呼び出しAPIを持たない）
 - 3つを組み合わせる構成も現実的: Macieで既存のS3データレイクの機微情報を棚卸しし、Comprehendでバッチ処理・カスタムパイプラインのPII検出を行い、Bedrockアプリの入出力はGuardrailsで防御する、という**層ごとに適材適所で使い分ける**設計
+- 画像・動画も含めたモデレーション要件（Rekognitionとの組み合わせ）における各サービスの対応メディア・使用フェーズの一覧は[[03-content-moderation-multimodal-coverage]]を参照
 
 ## 多層防御（Defense in Depth）としてのGuardrails
 

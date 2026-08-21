@@ -113,6 +113,41 @@ aws bedrock-agent-runtime retrieve-and-generate \
 - 各チャンクにメタデータ（例: `department: sales`、`year: 2025`）を付与しておき、検索時に`retrievalConfiguration`でフィルタ条件を指定できる
 - 「全文書を検索対象にしつつ、特定部署・特定期間の文書だけに絞りたい」というマルチテナント/アクセス制御的な要件で使う
 - ただしAmazon Qのようなドキュメントレベル自動ACL反映とは異なり、**フィルタ条件はアプリ側が明示的に組み立てる**必要がある（KBが自動でユーザーの権限を判定してくれるわけではない）
+- S3データソースの場合、メタデータは各オブジェクトと同じプレフィックスに置く`<object-key>.metadata.json`で付与する（例: `report.pdf` に対して `report.pdf.metadata.json`）
+
+```json
+{
+  "metadataAttributes": {
+    "contentType": { "value": { "type": "STRING", "stringValue": "transcript" } },
+    "publishedDate": { "value": { "type": "STRING", "stringValue": "2025-01-15" } }
+  }
+}
+```
+
+```bash
+# Retrieve時にcontentTypeで絞り込む例（RetrievalFilter）
+aws bedrock-agent-runtime retrieve \
+  --knowledge-base-id <KB_ID> \
+  --retrieval-query '{"text": "速報の内容は？"}' \
+  --retrieval-configuration '{
+    "vectorSearchConfiguration": {
+      "filter": { "equals": { "key": "contentType", "value": "transcript" } }
+    }
+  }'
+```
+
+#### 他サービスでの同種の実装との比較
+
+「検索範囲を絞りたい」という要件に対して、KBのメタデータフィルタ以外にもOpenSearch・Q Businessが選択肢として並ぶことがある。試験では「既存アーキテクチャへの変更を最小限にする」等の制約が決め手になるため、機能の有無だけでなく実装の重さまで比較する必要がある。
+
+| 観点 | Bedrock KB（メタデータフィルタ） | Amazon OpenSearch Service（生のベクトル検索） | Amazon Q Business |
+|------|-----------------------------------|--------------------------------------------------|---------------------|
+| メタデータの持たせ方 | S3データソースなら `<object-key>.metadata.json`（上記参照） | インデックスのマッピングでフィールド定義し、bulk API等でベクトルと一緒に格納 | コネクタの属性マッピング設定でDocument Attributesとして定義 |
+| フィルタの適用方法 | `Retrieve`/`RetrieveAndGenerate`の`retrievalConfiguration`（RetrievalFilter）に`equals`/`in`/`greaterThan`/`andAll`等を指定 | k-NNクエリに`bool`の`filter`句を組み合わせるOpenSearch DSLをアプリ側で構築（[29-opensearch-service.md](29-opensearch-service.md)参照） | `Chat`/`ChatSync` APIの`attributeFilter`パラメータ、またはUI上のフィルタ設定 |
+| 既存アーキテクチャへの影響 | **なし。** KB・データソース・ベクトルストアはそのまま。メタデータJSONを追加して再Ingestionするだけ | **大。** マネージドなKB経由の検索から、生のOpenSearchクエリを書く独自実装への置き換えが必要（KBが内部でOpenSearch Serverlessをベクトルストアに使っていても、それを直接叩く実装に変えるのは別物） | **大。** 開発者向けAPI統合（Bedrock）から、フルマネージドのエンドユーザー向けチャットアプリへの移行そのもの |
+| アクセス制御との関係 | フィルタ条件は**アプリ側が明示的に組み立てる**（自動ACL反映ではない） | FGACで別レイヤーの制御は可能だが、検索クエリのフィルタとは別物 | IAM Identity Center連携でドキュメントレベルのACLが**自動で**検索結果に反映される |
+
+**見落としやすい前提**: RAGは「Indexing（事前準備・都度ではない）→ Retrieval（推論のたびに毎回）」という非同期の2段構成（[21-rag-basics.md](21-rag-basics.md)）。S3はIngestion時にドキュメントを取り込む**データソース**であり、検索（Retrieve）のたびにS3へ読みに行くわけではない。実際に検索対象になるのはKB作成時に指定したベクトルストア（OpenSearch Serverless等）であり、S3自体の読み取り速度は検索レイテンシの原因にならない。応答が遅い原因を問う設問で「S3は遅そうだから」という直感だけで選択肢を判断しない。
 
 ### Guardrails・Citationとの統合
 

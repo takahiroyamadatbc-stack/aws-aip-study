@@ -192,6 +192,47 @@ aws bedrock-agent associate-agent-knowledge-base \
 aws bedrock-agent prepare-agent --agent-id <AGENT_ID>
 ```
 
+### マルチエージェントコラボレーション（Supervisor / Collaborator）
+
+単一のAgentにインストラクション・Action Group・KBを詰め込むのではなく、**役割ごとに独立した複数のAgentを協調させる**ための機能。チームリーダー（スーパーバイザー）が各専門メンバー（コラボレーター）に仕事を振り分けるイメージ。
+
+| 役割 | 実体 | 役割の内容 |
+|------|------|------------|
+| スーパーバイザーエージェント | 通常のBedrock Agentの一種（`agentCollaboration`を有効化したもの） | ユーザー入力を受け取り、各コラボレーターの役割・責任（登録時の説明文）をもとに**自然言語のインテント分類**を行い、適切なコラボレーターにタスクをルーティングする。必要に応じて複数コラボレーターの結果を統合して最終回答を生成する |
+| コラボレーターエージェント | それ自体が独立したBedrock Agent（専用のAlias） | 特定ドメインに特化。独自のインストラクション・Action Group・Knowledge Base・Guardrailsを個別に持てる。スーパーバイザーから受け取ったサブタスクを処理し、結果を返す |
+
+- コラボレーターは既存の（単体でも動く）Bedrock Agentをそのまま登録できる。**新しい部門・機能を追加する際はコラボレーターを1つ追加するだけで済み**、既存のコラボレーターやスーパーバイザーの設定に影響しない＝拡張性が高い
+- ルーティングは**手動のハンドオフ処理を実装する必要はない**。スーパーバイザーが自然言語で意図を判定して自動的に振り分ける
+- スーパーバイザー配下の並行処理・スケーリングはBedrockのマネージド機構が自動で行うため、数千件規模の同時インタラクションにも別途スケーリング設計は不要
+- 複数の独立したスーパーバイザーを並列運用する構成は**非推奨**。ユーザーの入力が複数部門にまたがる場合にどのスーパーバイザーへ振り分けるかという上位のルーティング問題が未解決のまま残り、外部ロジックでの統合はレイテンシ増加・応答の一貫性低下を招く。**単一のスーパーバイザーが全体を統括する階層モデル**が基本
+
+**コラボレーションモード（`agentCollaboration`パラメータ）**
+
+| モード | 挙動 |
+|--------|------|
+| `DISABLED` | マルチエージェント機能を使わない通常のAgent（デフォルト） |
+| `SUPERVISOR` | スーパーバイザー自身も推論ループを持ち、コラボレーターの結果を踏まえて追加の判断・統合処理を行うフルオーケストレーション |
+| `SUPERVISOR_ROUTER` | ルーティングに特化した軽量モード。該当するコラボレーターへほぼそのまま振り分け、追加の推論処理を最小限にすることでレイテンシを抑える |
+
+```bash
+# スーパーバイザーエージェントを作成（マルチエージェントコラボレーションを有効化）
+aws bedrock-agent create-agent \
+  --agent-name patient-care-supervisor \
+  --foundation-model anthropic.claude-3-5-sonnet-20241022-v2:0 \
+  --agent-collaboration SUPERVISOR \
+  --instruction "患者からの問い合わせ内容に応じて、臨床・保険確認・予約・保険請求の担当コラボレーターに振り分けてください。" \
+  --agent-resource-role-arn <AGENT_ROLE_ARN>
+
+# 既存のコラボレーターエージェント（Alias単位）をスーパーバイザーに関連付け
+aws bedrock-agent associate-agent-collaborator \
+  --agent-id <SUPERVISOR_AGENT_ID> \
+  --agent-version DRAFT \
+  --agent-descriptor '{"aliasArn": "<COLLABORATOR_AGENT_ALIAS_ARN>"}' \
+  --collaborator-name clinical-inquiry-agent \
+  --collaboration-instruction "臨床的な問い合わせ（症状、診療内容の確認等）を担当します" \
+  --relay-conversation-history TO_COLLABORATOR
+```
+
 ## Bedrock Prompt Management と Flows
 
 Agentsがモデル自身に「次に何をすべきか」を判断させる自律的な仕組みなのに対し、Prompt ManagementとFlowsは**プロンプト・処理ステップの流れを人間があらかじめ設計する**、よりロコード寄りのオーケストレーション機能。
@@ -228,3 +269,5 @@ Agentsがモデル自身に「次に何をすべきか」を判断させる自�
 - 「Agentが使うオーケストレーション用のFMと、紐づけたKB単体のRetrieveAndGenerateで使うFMは常に同じものになる」→ 誤り。両者は独立して設定できる別々のモデル選択
 - 「Bedrock Guardrailsは属性グループ間の出力の偏り（公平性メトリクス）を自動的に計算・比較してくれる」→ 誤り。Guardrailsが評価するのは1回の入出力テキスト単位の有害性・PII・拒否トピック等であり、複数呼び出しを属性グループ別に集計・比較する機能はネイティブには持たない
 - 「SageMaker Model MonitorはBedrockのモデル呼び出しにもそのまま適用できる」→ 誤り。Model MonitorはSageMakerエンドポイントを対象にした監視サービスで、Bedrockのマネージド呼び出しには標準で統合されない
+- 「マルチエージェント構成は、単一Agent内に複数のAction Groupを設定すれば実現できる」→ 誤り。Action Groupはあくまで1つのAgentが呼び出すAPI/Lambda機能の集合であり、ドメインごとに独立した推論能力を持つコラボレーターAgentとは別物
+- 「部門ごとに個別のスーパーバイザーエージェントを立てるのが正しいマルチエージェント設計」→ 誤り。複数部門にまたがる問い合わせをどのスーパーバイザーに振るかという上位のルーティング問題が残り、手動ハンドオフや外部統合ロジックが必要になりレイテンシ・一貫性が悪化する。**単一のスーパーバイザーが複数のコラボレーターを統括する階層モデル**が正しい構成

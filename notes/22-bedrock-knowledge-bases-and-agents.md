@@ -295,6 +295,34 @@ Agentsがモデル自身に「次に何をすべきか」を判断させる自�
 - **Prompt node**は、Prompt Managementで管理しているプロンプト（バリアント含む）をFlowの1ノードとして呼び出せるノード種別
 - Prompt nodeには、`Converse`/`InvokeModel`呼び出しに`guardrailConfig`を渡すのと同様に、**ノード単位でGuardrailを関連付けられる**。これにより、Flow内の特定ノードの入出力にだけGuardrailの評価（コンテンツフィルタ・拒否トピック・PII検出等）を適用する構成が組める
 
+### Flowsのバージョン・エイリアス・InvokeFlow
+
+AgentsのDRAFT/Prepare/Alias（本ファイルL210〜216）と同じ「本番昇格＝不変スナップショットへのポインタ切り替え」という思想がFlowsにもある。
+
+- **ワーキングドラフト**: `DRAFT`という特殊バージョン。ノード構成を編集するたびに自動更新される可変（mutable）な状態。テスト・反復はここで行う
+- **バージョン**: `CreateFlowVersion`でワーキングドラフトの内容を発行すると作られる、その時点のノード構成・接続・パラメータ丸ごとのスナップショット。**発行後は変更不可**（immutable）で、1, 2, 3...と連番で増えていく
+- **エイリアス**: `CreateFlowAlias` / `UpdateFlowAlias`で作る、特定のバージョン番号を指すポインタ（例: `prod`エイリアス→バージョン3）。アプリケーションからの呼び出しはこのエイリアス経由で行う
+
+呼び出し側（`bedrock-agent-runtime`クライアントの`InvokeFlow`）は、バージョン番号を直接指定せず`flowIdentifier`（フローのID）と`flowAliasIdentifier`（エイリアスのID）を渡す。
+
+```python
+import boto3
+
+client = boto3.client("bedrock-agent-runtime")
+
+response = client.invoke_flow(
+    flowIdentifier="ABCD1234EFGH",      # フロー自体のID
+    flowAliasIdentifier="WXYZ5678IJKL", # "prod"エイリアスのID
+    inputs=[{
+        "content": {"document": "契約書のレビューをお願いします"},
+        "nodeName": "FlowInputNode",
+        "nodeOutputName": "document",
+    }],
+)
+```
+
+アプリコードにバージョン番号をハードコードすると、新バージョンを本番投入するたびにアプリ側の変更が必要になる。エイリアスID経由で呼ぶことで、本番昇格・ロールバックは`UpdateFlowAlias`でエイリアスの向き先（`routingConfiguration`）を書き換えるだけで完結し、アプリケーションコードは一切変更不要になる。Lambdaの「バージョン＋エイリアス」、API Gatewayの「ステージ」と同型のパターン。
+
 ### Guardrailsの介入とCloudWatch連携
 
 - Bedrock Guardrailsは呼び出しごとに、介入回数やポリシー種別ごとのブロック数などをCloudWatchメトリクスとして送信する
@@ -317,6 +345,7 @@ Agentsがモデル自身に「次に何をすべきか」を判断させる自�
 - 「Bedrock Guardrailsは属性グループ間の出力の偏り（公平性メトリクス）を自動的に計算・比較してくれる」→ 誤り。Guardrailsが評価するのは1回の入出力テキスト単位の有害性・PII・拒否トピック等であり、複数呼び出しを属性グループ別に集計・比較する機能はネイティブには持たない
 - 「SageMaker Model MonitorはBedrockのモデル呼び出しにもそのまま適用できる」→ 誤り。Model MonitorはSageMakerエンドポイントを対象にした監視サービスで、Bedrockのマネージド呼び出しには標準で統合されない
 - 「マルチエージェント構成は、単一Agent内に複数のAction Groupを設定すれば実現できる」→ 誤り。Action Groupはあくまで1つのAgentが呼び出すAPI/Lambda機能の集合であり、ドメインごとに独立した推論能力を持つコラボレーターAgentとは別物
+- 「Flowsの本番運用ではアプリからバージョン番号を直接指定して呼び出す」→ 誤り。`InvokeFlow`はエイリアスID（`flowAliasIdentifier`）を指定して呼び出すのが基本パターン。バージョン切り替えはエイリアスの向き先変更だけで完結し、アプリ側のコード変更は不要
 - 「部門ごとに個別のスーパーバイザーエージェントを立てるのが正しいマルチエージェント設計」→ 誤り。複数部門にまたがる問い合わせをどのスーパーバイザーに振るかという上位のルーティング問題が残り、手動ハンドオフや外部統合ロジックが必要になりレイテンシ・一貫性が悪化する。**単一のスーパーバイザーが複数のコラボレーターを統括する階層モデル**が正しい構成
 - 「Hierarchical chunking（階層チャンキング）は親子どちらもトークン数基準の分割であり、意味の境界とは無関係」→ 正しい理解として押さえる。親子チャンクを設定できても分割の切れ目自体はトークン数で決まるため、概念やセクション境界とズレる可能性がある。長文技術文書で「意味の連続性」を最優先したい場合はSemantic chunkingの方が適する（[21-rag-basics.md](21-rag-basics.md)の高度なRAG技術と合わせて、チャンク戦略同士の使い分けを混同しないこと）
 - 「文書全体をコンテキストウィンドウの上限まで均等分割し、独立処理してから結果を集約すればよい」→ 誤り。セグメント間の文脈が失われ、集約時に矛盾が生じやすい。RAGの基本形は「関連するチャンクだけをRetrievalで動的に選び、1回のFM呼び出しにまとめて渡す」であり、文書全体を機械的に総ざらいする設計ではない（[52-context-prompt-issues.md](52-context-prompt-issues.md)の「チャンクとFM呼び出しの1対N関係」参照）

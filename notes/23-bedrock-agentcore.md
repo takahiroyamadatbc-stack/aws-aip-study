@@ -26,6 +26,7 @@ AgentCoreは単一サービスではなく、複数のマネージド機能の�
 | AgentCore Observability | エージェントの実行トレース・ログ・メトリクスを収集する | OpenTelemetry準拠でトレースを送出し、CloudWatch GenAI Observabilityで可視化できる |
 | AgentCore Browser Tool | エージェントがWebブラウザを安全なサンドボックス内で操作できるようにする組み込みツール | ライブビュー（VNC的な画面共有）で実行中の操作を人間が確認できる |
 | AgentCore Code Interpreter | エージェントがコードを安全なサンドボックス内で実行できるようにする組み込みツール | 複数言語に対応し、Runtimeと同様にセッション分離される |
+| AgentCore Evaluations | エージェントの応答品質・タスク遂行度（ゴール達成率、ツール選択の妥当性など）をセマンティックに継続評価する | 本番のライブトラフィックをサンプリングして継続的にスコア化する**オンライン評価**と、任意のデータセットに対する**オフライン評価**の両方に対応。組み込み評価子（`Builtin.GoalSuccessRate`＝ゴール達成率、`Builtin.ToolSelectionAccuracy`＝ツール選択精度など）でマルチステップのトレースを評価する。結果はAgentCore Observability/CloudWatchに統合される。Bedrock Model Evaluationとの違いは[50-model-evaluation.md](50-model-evaluation.md)参照 |
 
 ## デプロイの流れ（イメージ）
 
@@ -70,3 +71,4 @@ aws bedrock-agentcore-control create-gateway-target \
 - 「AgentCore Memoryはセッションをまたいだ長期記憶しか扱わない」→ 誤り。セッション内の短期記憶とセッション横断の長期記憶の両方を管理する
 - 「AgentCore Gatewayを使うには、呼び出したいAPI側を事前にMCP対応で作り直す必要がある」→ 誤り。既存のLambda/OpenAPI/SmithyをGatewayがMCP互換ツールに変換して公開してくれる
 - 「AgentCore Identityは人間ユーザー向けの認証基盤（IdP）である」→ 誤り。エージェントが人間に代わって外部リソースにアクセスする際の認可（Inbound/Outbound Auth）を扱うものであり、人間ユーザーの認証そのものではない
+- 「エージェントのゴール達成率やツール選択精度は、Bedrock Model Evaluation（`CreateEvaluationJob` API）で継続評価できる」→ 誤り。同APIの`applicationType`は`ModelEvaluation`／`RagEvaluation`の2値のみで、マルチステップのエージェントトレースを評価対象とする種別は存在しない。エージェント特化の継続的な品質評価はAgentCore Evaluationsの役割（詳細は[50-model-evaluation.md](50-model-evaluation.md)参照）

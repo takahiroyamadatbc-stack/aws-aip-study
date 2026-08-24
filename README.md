@@ -82,6 +82,7 @@ aws resourcegroupstaggingapi get-resources \
 |-----|------|--------|--------|------|----------|
 | [001-bedrock-provisioned-throughput](labs/001-bedrock-provisioned-throughput/) | 問23 | Bedrock Provisioned Throughput | CLI | 検証中 | Provisioned Throughputは購入だけでは使われず、InvokeModel/Converseのmodel-idにprovisionedModelArnを明示的に渡す必要がある |
 | [002-q-business-s3-acl](labs/002-q-business-s3-acl/) | 問18 | Amazon Q Business S3コネクタのACL設定 | CLI | 検証中 | S3(V2)コネクタのACLは`accessControlConfiguration.aclConfigurationFilePath`という単一パスで同一バケット内の1つのJSONファイル（keyPrefix+aclEntries配列）を指定する仕組みで、部門ごとの複数ファイル指定は不可 |
+| [003-bedrock-clarify-fairness-monitoring](labs/003-bedrock-clarify-fairness-monitoring/) | 問46 | Bedrock×SageMaker Clarifyによる公平性の継続監視 | CLI | 検証中 | BedrockにはData Captureもネイティブなドリフト監視機能もないため、アプリ側でS3キャプチャ→SageMaker Clarifyのバイアス分析をEventBridge Schedulerで定期実行→CloudWatch発行、という自前スケジューリング構成が必要（ネイティブMonitoring ScheduleはSageMakerエンドポイント専用でBedrockには直接使えない） |
 
 状態は `未着手` / `検証中` / `完` のいずれかを記載する。
 

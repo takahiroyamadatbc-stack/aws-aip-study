@@ -115,6 +115,31 @@ aws bedrock create-evaluation-job \
 - `role-arn`に指定するIAMロールには、評価対象モデルの`InvokeModel`権限、入出力S3バケットへのアクセス権限、（judgeモデルを使う場合は）judgeモデルへの`InvokeModel`権限が必要
 - 人間評価ジョブは`evaluationConfig`に`human`ブロックを指定し、ワークチームのARNや評価指標定義を渡す形になる（コンソールからの作成の方が実務では一般的）
 
+## 「公平性の継続監視」という要件ではSageMaker Clarify/Model Monitorが必要になる
+
+Bedrockベースのアプリケーションであっても、**「デモグラフィックグループ間の公平性メトリクスを継続的（定期的）に収集・監視し、閾値超過でアラートを出す」という要件は、Bedrock Model Evaluationだけでは満たせない**。この要件が出た場合、SageMaker Clarify（のバイアスドリフトモニタリング機能）を組み合わせる設計が正解になる。
+
+### なぜBedrock Model Evaluationでは満たせないか
+
+| 観点 | Bedrock Model Evaluation | 要件が求めるもの |
+|---|---|---|
+| 実行形態 | **一回限りのバッチジョブ**。スケジュールに沿って定期的に再実行し続ける仕組みはネイティブには持たない | 継続的（定期的）な収集 |
+| メトリクスの発行先 | 結果はS3上のレポート／コンソールで確認するのが基本で、**CloudWatchメトリクスへ自動発行する機構がない** | CloudWatchアラームによる閾値超過検知、CloudWatchダッシュボードでのレポーティング |
+| 指標の性質 | Correctness/Completeness/Faithfulness/Helpfulness/Coherence/Relevance/FollowingInstructions/ProfessionalStyleAndTone/Harmfulness/Stereotyping/Refusalは、いずれも**単一の応答（または最大2応答の比較）の品質・安全性**を測る指標。**複数のデモグラフィックグループ間の統計的な差・比率**（Class Imbalance、DPL、DPPL、Disparate Impact等）を算出する設計にはなっていない。Stereotypingは「その応答自体にステレオタイプ的表現が含まれるか」を見る指標であり、属性グループ間で予測結果がどれだけ異なるかを定量比較する指標とは別物 | デモグラフィックグループ間の不一致率（例: 15%）を測る公平性メトリクス |
+| 位置づけ | モデル選定・プロンプト比較のための**開発時オフライン検証ツール** | 本番運用中の**継続的モニタリング** |
+
+つまりBedrock Model Evaluationは「開発中に、どのプロンプト/モデルが良いかを一度確かめる」ための評価ツールであり、「本番運用中、継続的に公平性が保たれているかを監視し続ける」ための運用ツールではない。「評価はいずれもバッチジョブ（非同期）」という上記「試験の勘所」の指摘とも整合する整理。
+
+この役割分担は[22-bedrock-knowledge-bases-and-agents.md](22-bedrock-knowledge-bases-and-agents.md)で述べた「SageMaker Model MonitorはBedrockのマネージド呼び出しに直接は統合されない」という制約とセットで理解する必要がある。**SageMaker Model Monitor自体はSageMakerエンドポイントのData Captureに依存するため、Bedrockの呼び出しを自動キャプチャする機能は持たない**が、**SageMaker Clarifyのバイアスドリフト分析ジョブは、任意にS3へ配置したデータに対して実行できる**。そのため、アプリケーション側でBedrockのプロンプト・応答・デモグラフィック属性をS3へログとして保存しておけば、その入出力データをClarifyのバイアスドリフト分析にかけ、結果をCloudWatchメトリクス（`bias_metric_CI`のような命名規則）として発行し、CloudWatchアラーム・ダッシュボードにつなげる、という構成が成立する。**「Bedrock単体では足りない機能を、SageMaker側の機能（Clarify）で補う」という設計パターン**として押さえておく。
+
+### SageMaker Clarifyの提供状況に関する注意（2026年7月30日〜新規顧客への提供終了）
+
+[26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)で触れた通り、SageMaker Clarifyは**2026年7月30日以降、新規顧客への新規提供が終了**する。**既存に利用していた顧客は引き続き利用でき、「サービスが完全に終了する（EOL）」わけではない**点に注意（サービス終了と新規提供終了は別物）。この設問自体は現行のAWS試験問題としてSageMaker Clarifyのバイアスドリフトモニタリングを正解として扱っており、当面の試験知識としては「Bedrockで足りない継続的な公平性監視は、SageMaker Clarifyで補う」という理解で問題ない。
+
+ただし実務上は、AWSが提示する代替手段（**SageMaker AI基盤上で動くオープンソースの監視ソリューション**＝SageMaker AI MLflow Apps + Evidently AI、**Amazon CloudWatch**によるメトリクス・アラート発行、の組み合わせ）への段階的な移行を見据える必要がある。「今後はオープンソースのサービスを利用する」という理解の方向性は正しいが、正確には**「SageMaker AI基盤上でEvidently AI等のOSSツールを組み合わせて自前実装する」**という中身まで押さえておくと、実務・試験の両方で誤解しにくい（単なる「オープンソースサービス」ではなく、AWSマネージドサービス群＋OSSライブラリの組み合わせという構成）。
+
+**Amazon QuickSightは必須ではない**点に注意。AWSが公開する7つの参照実装（[26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)参照）のうち、QuickSightのガバナンスダッシュボードを使うのは「Real-Time Inference Monitoring with QuickSight Dashboards」の1つだけで、他はSNSのみの軽量通知（ダッシュボードなし）やAmazon Managed Grafanaを使う構成もある。QuickSightは「経営層向けの継続的なガバナンスダッシュボード」が要件に含まれる場合の選択肢の一つであり、CloudWatchダッシュボードだけで完結させる構成（今回の問題46の正解もこちら）も成立する。
+
 ## 試験の勘所
 
 - 「モデルの性能を客観的に比較したい」→自動評価、「実際の業務利用に耐えるトーン・自然さを確認したい」→人間評価、「RAGの回答が検索結果に基づいているか確認したい」→Knowledge Bases評価、という**目的ベースでの使い分け**が最頻出の切り口

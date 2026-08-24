@@ -11,7 +11,7 @@
 | **SageMaker Data Wrangler** | GUI/ノーコードでのデータ探索（EDA）・前処理の試行錯誤 | ②前処理と分析 |
 | **SageMaker Processing** | コードベースの前処理・後処理・評価ジョブをスケール実行 | ②前処理と分析／④モデル評価 |
 | **SageMaker Feature Store** | 特徴量の一元管理（Online Store＝低レイテンシ推論用、Offline Store＝学習・分析用） | ②前処理と分析 |
-| **SageMaker Clarify** | バイアス検出（pre-training／post-training）、SHAP値による説明可能性 | ②前処理と分析（pre-training bias）／④モデル評価（post-training bias、Explainability） |
+| **SageMaker Clarify**（※1） | バイアス検出（pre-training／post-training）、SHAP値による説明可能性 | ②前処理と分析（pre-training bias）／④モデル評価（post-training bias、Explainability） |
 | **SageMaker Automatic Model Tuning（HPO）** | ハイパーパラメータの自動探索（Grid/Random/Bayesian/Hyperband） | ③モデルトレーニング |
 | **SageMaker Experiments** | トライアル（Run）ごとのハイパーパラメータ・メトリクス・成果物の記録・比較 | ③トレーニング／④評価 |
 | **SageMaker Model Registry** | モデルのバージョン管理・承認ステータス（Pending/Approved/Rejected）によるデプロイゲート | ④モデル評価〜⑤デプロイ |
@@ -21,10 +21,12 @@
 | **SageMaker Neo + AWS IoT Greengrass** | エッジデバイス向けのモデルコンパイル・配布 | ⑤デプロイと推論 |
 | **SageMaker Inference Recommender** | デプロイ前の負荷テストによるインスタンスタイプ選定 | ⑤デプロイと推論（デプロイ前） |
 | **AWS Compute Optimizer** | 稼働中リソース（SageMakerエンドポイント含む全AWSリソース）の継続的なrightsizing | ⑤デプロイと推論（デプロイ後） |
-| **SageMaker Model Monitor** | 本番稼働中のドリフト検知（Data Quality／Model Quality／Bias Drift／Feature Attribution Drift） | 運用（MLOpsのCT起点） |
+| **SageMaker Model Monitor**（※1） | 本番稼働中のドリフト検知（Data Quality／Model Quality／Bias Drift／Feature Attribution Drift） | 運用（MLOpsのCT起点） |
 | **SageMaker Pipelines** | 前処理〜デプロイの一連のワークフローをDAGとしてコード定義・自動実行 | 運用（MLOpsのCI/CD/CTの中核） |
 | **SageMaker Projects** | CodePipeline/CodeBuild等と統合したCI/CDのMLOpsテンプレート | 運用（MLOps） |
-| **SageMaker Role Manager** | ペルソナ別の最小権限IAM実行ロールをウィザードで作成 | 運用（アクセス管理・ガバナンス） |
+| **SageMaker Role Manager**（※1） | ペルソナ別の最小権限IAM実行ロールをウィザードで作成 | 運用（アクセス管理・ガバナンス） |
+
+（※1）2026年7月30日以降、新規顧客への提供を終了（既存顧客は継続利用可）。詳細は各セクション内の「提供状況の変更」を参照
 
 ## MLパイプラインの流れ
 
@@ -276,6 +278,40 @@ AWS特有の評価関連サービスは以下。
 - SageMaker Studio上でレポート（Bias Report / Explainability Report）として可視化されるほか、SageMaker Processing Jobとしてパイプラインに組み込み、④の評価ステップで自動実行できる
 - 本番運用中の継続監視（Bias Drift / Feature Attribution Drift）は**SageMaker Model Monitor**が担当領域で、ClarifyはそのMonitorが使うベースライン計算・監視ロジックの提供元という関係になる（詳細は後述の「SageMaker Model Monitor」セクション参照）
 
+**提供状況の変更（2026年7月30日〜新規顧客への提供終了）**
+
+- AWS公式ドキュメントの告知により、SageMaker Clarifyは**2026年7月30日以降、新規顧客が新たに利用開始することができなくなる**（[Clarify availability change](https://docs.aws.amazon.com/sagemaker/latest/dg/clarify-availability-change.html)）。**既存に利用していた顧客は従来通り利用を継続できる**。AWSはセキュリティ・可用性面の改善投資は継続するが、新機能追加は行わない方針
+- 同時に対象となっているSageMaker AI機能は、Clarifyの他にMechanical Turk、Ground Truth、Augmented AI（A2I）、Studio Lab、**Model Monitor**、Debugger、Role Manager、Geospatial、Profilerの合計10機能（Ground Truth Plusは2026年6月30日に既にサポート終了済み）
+- AWSが提示する代替手段（Clarify分）
+  - **バイアス検出**: pre-training/post-trainingのバイアスメトリクス（DPL、DI等）は公開された標準的な計算式であるため、pandas/scikit-learnで自前実装する
+  - **説明可能性（SHAP値）**: Clarify自体がSHAPライブラリを内部で使っているため、SHAPライブラリを直接利用すれば同等の結果が得られる
+  - **継続的なバイアス・特徴量寄与度ドリフト監視**: AWSがGitHub（`aws-samples`組織）で公開しているオープンソースの監視ソリューション（SageMaker AI MLflow Apps + Evidently AI）が土台で、Amazon CloudWatchでのメトリクス・アラート発行と組み合わせるのが基本形。**Amazon QuickSightは必須ではない**——AWSが公開する7つの参照実装のうちQuickSightのガバナンスダッシュボードを使うのは1つ（Real-Time Inference Monitoring with QuickSight Dashboards）だけで、他はSNSのみの軽量通知（ダッシュボードなし）やAmazon Managed Grafanaを使う構成もある。「経営層向けの継続的なガバナンスダッシュボードが要件に含まれるか」で選ぶ、CloudWatch以外の可視化層の選択肢の一つという位置づけ
+  - **基盤モデル（LLM）評価（FMEval機能）**: `fmeval`ライブラリを直接利用するか、**Amazon Bedrock Evaluations**（マネージドサービス）に置き換える。ランタイムの有害コンテンツ検知は**Amazon Bedrock Guardrails**が担う。ただしBedrock EvaluationsはあくまでFM評価用であり、表形式データ（tabular/古典的ML）のバイアス検出・説明可能性の代替にはならない点に注意
+
+#### 可視化層の選択肢: Amazon Managed Grafana
+
+**これは何か**: OSS（オープンソース）の可視化・ダッシュボードツールである**Grafana**のフルマネージド版。自前でGrafanaサーバーを構築・パッチ適用・スケーリングする運用負荷なしに、使い慣れたGrafana UIとダッシュボード資産（既存のGrafanaダッシュボード定義やプラグインエコシステム）をそのまま使える。
+
+**特徴**
+
+- **マルチデータソース対応**が最大の特徴。CloudWatch、Prometheus、Amazon Timestream、OpenSearch Service、Athena、X-Rayなど、**複数の異なるデータソースを横断して1つのダッシュボードに統合**できる（QuickSightやCloudWatch単体はこの横断統合が主目的ではない）
+- SAML/IAM Identity Centerと連携したユーザー・チーム単位のアクセス制御（Workspace単位で管理）
+- 秒〜分単位の更新間隔でのリアルタイム性の高い可視化に強く、**SRE/MLOpsエンジニアなど技術者がシステムメトリクスを監視する運用ダッシュボード**用途が主戦場
+- 前述のSageMaker AI監視ソリューション群では、「SageMaker Resource Observability with Grafana」（GPU/CPU/メモリ使用率＋コストの可視化）と「LLM Quality Observability with Grafana」（安全性・関連性・トーン等のLLM品質観測）の2ソリューションで採用されている
+
+**Amazon Managed Grafana / Amazon QuickSight / Amazon CloudWatchの比較**
+
+| 観点 | Amazon Managed Grafana | Amazon QuickSight | Amazon CloudWatch |
+|---|---|---|---|
+| 位置づけ | OSS Grafanaのフルマネージド版。技術者向けの運用・オブザーバビリティダッシュボード | フルマネージドのBI（ビジネスインテリジェンス）・データ可視化サービス | AWSネイティブの運用監視基盤（メトリクス・ログ・アラーム） |
+| 得意なデータソース | **複数データソースを横断統合**（CloudWatch、Prometheus、Timestream、OpenSearch、Athena、X-Ray等） | S3/Athena経由のデータレイク、RDS、Redshift等の**構造化データ** | AWSサービスのネイティブメトリクス、カスタムメトリクス、ログ |
+| 得意な用途 | GPU/CPU使用率・レイテンシ・スループット等、**システムメトリクスのリアルタイム運用監視** | 経営層・ビジネスユーザー向けの**ガバナンスダッシュボード**、トレンド分析、定期レポート | **しきい値監視・アラーム発行**、AWSリソースの標準監視、シンプルなダッシュボード |
+| リアルタイム性 | 高い（秒〜分単位） | 中〜低い（SPICEでのキャッシュ・バッチ更新が中心） | 高い（1分/5分間隔が基本） |
+| 主な利用者 | SRE、MLOpsエンジニア、インフラ担当者 | 経営層、ビジネスユーザー、データアナリスト | 開発者、運用担当者 |
+| SageMaker監視ソリューションでの役割 | リソース観測（GPU/CPU/コスト）、LLM品質観測 | バイアス・データドリフト等のガバナンスダッシュボード | 全ソリューション共通の基盤（メトリクス発行・アラーム）。ほぼ全ての構成で土台として使われる |
+
+**使い分けの基本方針**: Amazon CloudWatchはどの監視ソリューションでも共通の土台（メトリクス・アラームの発行先）として使われる。その上に可視化層を足すかどうか・何を足すかは要件次第で、「複数データソースを跨いだ技術者向けリアルタイム運用ダッシュボードが欲しい」ならAmazon Managed Grafana、「経営層向けのガバナンス・トレンドレポートが欲しい」ならAmazon QuickSight、「アラームと簡易ダッシュボードだけで十分」ならCloudWatch単体、という3択で考える。**3つは競合ではなく、CloudWatchが基盤、Grafana/QuickSightはその上に載せる可視化層の選択肢**という関係。
+
 ### SageMaker Model Registry
 
 **解決する課題**: 学習・評価を繰り返すと多数のモデルバージョンが生成されるが、これを個別管理すると「今どのバージョンが本番稼働中か」「どのバージョンがレビュー・承認済みか」が分からなくなる。Model Registryは、モデルを**カタログとしてバージョン管理し、本番デプロイ前の承認ゲートを設ける**ための仕組み。
@@ -450,6 +486,16 @@ MLOpsは、①〜⑤のパイプラインを**一度きりで終わらせず、�
 - Model Monitor自体は**検出のみ**を行うサービスで、検出後の**再学習・再デプロイのアクションは行わない**（EventBridge + SageMaker Pipelines等で自前に構成する必要がある）
 - Model Quality監視には**正解ラベルの後日収集**が前提になる点に注意（Data Quality監視はラベル不要で、入力分布だけで検出できる）
 - SageMaker Studio上でドリフトの推移や違反箇所を可視化でき、監視結果はCloudWatch経由で既存の運用監視基盤にも統合できる
+
+**提供状況の変更（2026年7月30日〜新規顧客への提供終了）**
+
+- AWS公式ドキュメントの告知により、SageMaker Model Monitorは**2026年7月30日以降、新規顧客が新たに利用開始することができなくなる**（[Model Monitor availability change](https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor-availability-change.html)）。**既存に利用していた顧客は従来通り利用を継続できる**点はClarifyと同様（同時に対象となる他機能は上記「SageMaker Clarify」セクション参照）
+- AWSが提示する代替手段: **オープンソースのSageMaker AI監視ソリューション**（`aws-samples`組織でAWSが公開、SageMaker AI MLflow Apps + Evidently AIベース）＋**Amazon QuickSight**（ガバナンスダッシュボード）＋**Amazon CloudWatch**の組み合わせ
+  - Data Quality監視: Evidently AIの`DataDriftPreset`（PSI・KS統計量）で代替
+  - Model Quality監視: Evidently AIの`ClassificationPreset`で代替（正解ラベルとの突き合わせが前提な点は変わらない）
+  - Bias Drift / Feature Attribution Drift監視: セグメント（属性）ごとの指標をEvidently AIで算出し、MLflow・QuickSightに記録する構成に置き換え
+  - いずれもAWSの管理下ではなく**ユーザー自身のAWSアカウント内で動くオープンソースの参照実装**を採用・カスタマイズする形になり、Model Monitorのようなマネージドの「機能を有効化するだけ」という位置づけから変わる点に注意
+- 出題時期・情報鮮度に注意: この提供終了情報はAIP-C01試験問題自体には（作問時期次第では）反映されていない可能性が高い。「Model Monitor/Clarifyを使う」という設問・解説が今後も出うるが、**実務でこれから新規に採用する前提の設計をする際は、上記の提供終了時期を踏まえてAWSの最新ドキュメントを確認する**のが実務上の前提になる
 
 ### SageMaker Pipelines
 

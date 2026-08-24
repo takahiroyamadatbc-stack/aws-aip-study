@@ -43,7 +43,25 @@ AWS Lake Formation    … DataZoneでサブスクリプションが承認され�
                          「どのテーブル・カラムを読めるか」を強制する権限（アクセス制御）レイヤー
 ```
 
-DataZoneのSubscription（申請→承認）が成立すると、対象がGlue Data CatalogのテーブルやRedshiftテーブルであればDataZoneが裏側でLake Formation権限（またはRedshiftの権限）を自動的に付与する。つまり**DataZoneは「アクセスを許可すべきかの意思決定・申請フロー」を担い、実際の権限行使（強制）はLake Formation等の下位レイヤーに委ねる**という分業になっている。
+### Subscription承認からLake Formation権限付与までの実際の流れ
+
+DataZoneがLake Formation管理下のGlue Data Catalogテーブル（**managed asset**と呼ぶ）を対象にサブスクリプションを承認すると、以下が自動的に起こる。
+
+1. 承認されたテーブルが、消費者側プロジェクトの**既存のすべてのdata lake environment**に自動的に追加される
+2. DataZoneが裏側で**Lake Formationの権限（Named Resource Method）**をそのテーブルに対して付与・管理する。付与された結果、消費者側アカウントのGlue Data Catalog上にもリソースとして見えるようになり、Athenaからクエリできる
+3. サブスクリプション承認後に**新しいenvironmentを追加した場合、そのenvironmentへの権限付与は自動追従しない**。データポータルの「Add grant」操作で手動付与が必要（試験でひっかけになりやすいポイント）
+
+この権限付与が成立するための前提条件も明確に決まっている。
+
+- 対象のGlueテーブルが**Lake Formation管理下**にあること（DataZoneはLake Formation権限を操作することで許可を実現するため）
+- テーブルを公開したdata lake environmentの**Manage accessロール**が、対象データベースに`DESCRIBE`/`DESCRIBE GRANTABLE`、対象テーブルに`DESCRIBE`/`SELECT`/`DESCRIBE GRANTABLE`/`SELECT GRANTABLE`のLake Formation権限を持っていること
+- **Glue Data CatalogアセットについてはLF-TBAC（[[12-lake-formation-lf-tags|LFタグベースの権限方式]]）はサポート対象外**で、Named Resource Method（テーブル個別指定）のみが使われる。「DataZone経由の権限もLFタグで柔軟に管理できる」という選択肢は誤り
+
+### Hybrid mode（IAM権限管理のテーブルとの共存）
+
+Lake Formationに未登録で、素のIAMポリシー（S3バケットポリシー等）だけでアクセス制御されているGlueテーブルも、Lake Formationへの事前登録なしにDataZone経由で共有できる仕組みが**Lake Formation hybrid mode**。DefaultDataLakeブループリントで「Data location registration」を有効化しておくと、消費者がそのテーブルにサブスクライブした時点でDataZoneが該当S3ロケーションを自動的にhybrid modeで登録し、既存のIAM権限を壊さずにLake Formation権限を追加で付与する。**既存ワークフローを止めずに段階的にLake Formationのガバナンス配下へ移行できる**のが狙いで、「Lake Formationに登録済みのテーブルしかDataZoneで共有できない」という理解は誤り。
+
+まとめると、**DataZoneは「アクセスを許可すべきかの意思決定・申請フロー（Subscription）」を担い、実際の権限行使（強制）はLake Formationに委ねる**という分業になっている。DataZoneの画面上で「承認」ボタンを押す操作が、裏側ではLake Formationの`grant-permissions`相当の呼び出しに変換されているとイメージすると、両者の関係が掴みやすい。
 
 ## 問題52のソリューション構成に見る役割分担
 
@@ -69,3 +87,5 @@ DataZoneのSubscription（申請→承認）が成立すると、対象がGlue D
 
 - [What is Amazon DataZone?](https://docs.aws.amazon.com/datazone/latest/userguide/what-is-datazone.html)
 - [Data lineage in Amazon DataZone](https://docs.aws.amazon.com/datazone/latest/userguide/datazone-data-lineage.html)
+- [Grant access to managed AWS Glue Data Catalog assets in Amazon DataZone](https://docs.aws.amazon.com/datazone/latest/userguide/grant-access-to-glue-asset.html)
+- [Amazon DataZone integration with AWS Lake Formation hybrid mode](https://docs.aws.amazon.com/datazone/latest/userguide/hybrid-mode.html)

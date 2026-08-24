@@ -41,6 +41,21 @@ Bedrockの評価ジョブは大きく3系統に分かれる。試験では「ど
 - 3指標のうち**「高いほど良い」のはAccuracyだけ**で、RobustnessとToxicityはどちらも「低いほど良い」。この非対称性（3指標が同じ方向を向いていない）は試験で狙われやすいポイント
 - Robustnessの算出は「摂動後スコアが元のスコアからどれだけ落ちたか」という**相対的な劣化度**であり、絶対的な0〜1のスコアそのものではないタスクタイプがある（要約/Q&A/分類は%表記のドリフト量）点も、Accuracyとの性質の違いとして押さえておく
 
+### 頻出スコアの早見表（このスコアはどんなときに使うか）
+
+問題文にスコア名だけが単独で提示され、「そのスコアが属する指標カテゴリ（Accuracy/Robustness/Toxicity）」や「対応するタスクタイプ」を問う出題が多い。以下の対応を機械的に覚えておく。
+
+| スコア名 | 属する指標カテゴリ | 使う場面（タスクタイプ） | 方向 |
+|---|---|---|---|
+| **RWKスコア**（Real World Knowledge） | Accuracy（正確性） | 一般的なテキスト生成 | 高いほど良い |
+| **BERTScore** | Accuracy（正確性） | テキスト要約 | 高いほど良い |
+| **F1スコア** | Accuracy（正確性） | 質問応答（Q&A） | 高いほど良い（0〜1） |
+| **正解率**（Accuracy） | Accuracy（正確性） | テキスト分類 | 高いほど良い（0〜1） |
+| **Word Error Rate**（単語誤り率） | Robustness（堅牢性）※精度指標ではない | 一般的なテキスト生成 | 低いほど良い |
+| **Toxicity**（有害性） | Toxicity（有害性）※精度指標ではない | 全タスクタイプ共通 | 低いほど良い |
+
+- 「要約の精度指標としてToxicityを使う」「テキスト生成の精度指標としてWord Error Rateを使う」は、いずれも**指標カテゴリの取り違え**（本来RobustnessやToxicityに属するスコアを、Accuracyが要求される場面に誤って当てはめる）という典型的な誤答パターン。スコア名を見たら、まず「これはAccuracy/Robustness/Toxicityのどれに属するか」を先に判定し、その上で設問がどのカテゴリの指標を要求しているかを確認する
+
 ### LLM-as-a-judge（モデルによる自動評価）
 
 人間評価に近い観点（有用性、指示追従性、正直さ、無害性、関連性など）を、**評価者役の別モデル（judgeモデル）**に自動採点させる方式。人間を介さずに主観寄りの指標を大量サンプルへスケールさせられるのが利点で、**最大2つの候補モデルの応答を並べて比較評価**もできる。人間評価より安価・高速だが、judgeモデル自身のバイアスや誤判定のリスクは残る（「人間評価の完全な代替」ではなく、一次スクリーニングとして位置づけるのが実務上も試験上も妥当な理解）。
@@ -114,6 +129,27 @@ aws bedrock create-evaluation-job \
 
 - `role-arn`に指定するIAMロールには、評価対象モデルの`InvokeModel`権限、入出力S3バケットへのアクセス権限、（judgeモデルを使う場合は）judgeモデルへの`InvokeModel`権限が必要
 - 人間評価ジョブは`evaluationConfig`に`human`ブロックを指定し、ワークチームのARNや評価指標定義を渡す形になる（コンソールからの作成の方が実務では一般的）
+
+## エージェント特有の品質評価（ゴール達成率・ツール選択精度）はAgentCore Evaluationsの役割
+
+ここまで説明してきたBedrock Model Evaluation（`CreateEvaluationJob` API）は、**単発のプロンプト→応答**を評価対象とする枠組み。`applicationType`は`ModelEvaluation`（FM単体評価）と`RagEvaluation`（Knowledge Bases評価）の**2値のみ**に限定されており、**複数ステップにわたるエージェントのツール呼び出しトレースを評価対象とする種別は存在しない**。「エージェントのゴール達成率やツール選択の妥当性を継続評価したい」という要件が出た場合、Bedrock Model Evaluationでは満たせず、[Bedrock AgentCore](23-bedrock-agentcore.md)の**AgentCore Evaluations**が正解になる。
+
+### Bedrock Model EvaluationとAgentCore Evaluationsの違い
+
+| 観点 | Bedrock Model Evaluation | AgentCore Evaluations |
+|---|---|---|
+| 評価対象 | FM単体の応答（プロンプト→応答の1往復）、またはKnowledge Basesの検索・生成 | **マルチステップのエージェント実行トレース**（ツール呼び出しの連鎖を含む一連のセッション） |
+| API/呼び出し方法 | `CreateEvaluationJob`（`applicationType`は`ModelEvaluation`／`RagEvaluation`のみ） | AgentCore Observabilityが収集したトレースに対する評価設定（組み込み評価子を指定） |
+| 実行形態 | バッチジョブ（都度ジョブを作成し完了を待つ、非同期・オフライン） | 本番ライブトラフィックを継続的にサンプリングしてスコア化する**オンライン評価**、および任意データセットに対する**オフライン評価**の両方に対応 |
+| 代表的な組み込み指標 | Accuracy（RWKスコア/BERTScore/F1/正解率）、Robustness、Toxicity、LLM-as-a-judgeのCorrectness/Helpfulness等 | `Builtin.GoalSuccessRate`（ゴール達成率）、`Builtin.ToolSelectionAccuracy`（ツール選択精度）など、エージェント特有の評価子 |
+| 結果の統合先 | S3上のレポート／Bedrockコンソール | AgentCore Observability、Amazon CloudWatch |
+
+- 「エージェントのセッションログをBedrock Model Evaluationのプロンプトデータセットとして持ち込み、model-as-judgeでスコア化すればよい」は罠。`CreateEvaluationJob`はプロンプト単位の評価フレームであり、ツール呼び出しの連鎖を含むエージェント固有のセマンティック品質（ゴール達成・ツール選択）を評価するようには設計されていない
+- 「本番のライブトラフィックにリアルタイムに近い形で継続評価をかけたい」という要件が出たら、バッチジョブ方式のBedrock Model Evaluationではなく、AgentCore Evaluationsのオンライン評価を検討する
+
+### SageMaker Clarifyとの関係（誤答の罠）
+
+SageMaker Clarifyは[26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)で扱う通り、**SHAPアルゴリズムによる特徴量帰属（説明可能性）とバイアス検出**が主目的のサービス。下記「公平性の継続監視」の章で述べる通りデモグラフィックグループ間の統計的な差を測る用途では有効な選択肢になり得るが、**会話エージェントがマルチステップのタスクを達成できたか、文脈に照らして適切なツールを選択できたか、といったセマンティックな品質を定量スコア化する機能は持たない**。「エージェントの評価」という言葉だけでClarifyを連想すると誤り選択肢を選んでしまうため、**Clarify＝予測結果の説明・公平性、AgentCore Evaluations＝エージェントの振る舞い・タスク達成度**という守備範囲の違いを区別する。
 
 ## 「公平性の継続監視」という要件ではSageMaker Clarify/Model Monitorが必要になる
 

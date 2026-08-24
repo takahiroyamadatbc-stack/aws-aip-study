@@ -2,6 +2,10 @@
 
 このリポジトリでの作業ルール。プロジェクトの目的・ディレクトリ構成・Labの作り方の基本は [README.md](README.md) を参照。ここには**Claudeが作業時に守るべき挙動**を書く。
 
+## 対象試験について
+
+このリポジトリの学習対象は **AWS Certified Generative AI Developer - Professional（試験コード: AIP-C01）**。AWS Certified AI Practitioner（試験コード: AIF-C01、Foundationalレベルの別資格）とは試験コードが紛らわしい（AIP-C01 / AIF-C01）上に対象者レベルも異なるため、**絶対に混同しないこと**。`notes/`のドメイン番号帯（`10`〜`59`）は、AIP-C01公式試験ガイドのContent Domain 1〜5（Foundation Model Integration, Data Management, and Compliance / Implementation and Integration / AI Safety, Security, and Governance / Operational Efficiency and Optimization for GenAI Applications / Testing, Validation, and Troubleshooting）に対応している。
+
 ## 学習の進め方（基本サイクル）
 
 このリポジトリでの標準的なやり取りは以下の流れ。

@@ -355,6 +355,7 @@ AWS特有の評価関連サービスは以下。
 - **SageMaker Endpoint**としてモデルをデプロイし、常時起動のHTTPSエンドポイントに1件ずつリクエストを送って低レイテンシで結果を受け取る
 - インスタンスは常時起動＝**稼働している間ずっと課金**される。Auto Scalingでインスタンス数を需要に応じて増減できる
 - 用途: レコメンド、不正検知、チャットボットなど**即時応答が必要**なユースケース
+- 稼働中のエンドポイントを新バージョンへ安全に切り替える機構（**Deployment Guardrails**によるCanary/Linear/All at onceのトラフィックシフトと自動ロールバック）は、他のAIサービスのデプロイ機構と横断比較した[201-ai-service-deployment-strategies.md](201-ai-service-deployment-strategies.md)を参照
 
 ### 大規模言語モデル（LLM）のデプロイ: SageMaker LMIコンテナ
 

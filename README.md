@@ -102,6 +102,7 @@ aws resourcegroupstaggingapi get-resources \
 
 | Note | テーマ | 状態 |
 |------|--------|------|
+| [04-agent-orchestration-services-comparison.md](notes/04-agent-orchestration-services-comparison.md) | Step Functions/Bedrock Flows/Multi-Agent Collaboration/SageMaker Pipelines/AgentCoreの位置づけ比較（誰が次の処理を決めるか、事前定義ワークフローvs実行時判断） | 未読 |
 | [20-cross-region-inference.md](notes/20-cross-region-inference.md) | Cross-Region Inference（推論プロファイル、Geographic/Global、SCPとの衝突、データレジデンシー要件の粒度） | 済 |
 | [21-rag-basics.md](notes/21-rag-basics.md) | RAGの基本（Indexing/Retrieval/Generation）、AWSサービス比較、高度なRAG技術（クエリ前処理、GraphRAG） | 未読 |
 | [22-bedrock-knowledge-bases-and-agents.md](notes/22-bedrock-knowledge-bases-and-agents.md) | Bedrock Knowledge Bases深掘り（データソース、パーサー、チャンク戦略、API）、GraphRAG実装、Bedrock Agents | 未読 |

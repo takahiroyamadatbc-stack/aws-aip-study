@@ -332,7 +332,7 @@ response = client.invoke_flow(
 
 ### SageMaker Model MonitorはBedrock呼び出しに直接は適用できない
 
-[26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)のSageMaker Model Monitorは、**SageMakerエンドポイントにデプロイしたモデル**の入出力を対象にした監視サービスであり、Bedrockのマネージド基盤モデル呼び出し（SageMakerエンドポイントを経由しない呼び出し）には標準では統合されない。Bedrockの呼び出しログをSageMaker Model Monitorが読み込める形式に変換する橋渡しが必要になる。
+[267-sagemaker-mlops-monitoring-pipelines-and-governance.md](267-sagemaker-mlops-monitoring-pipelines-and-governance.md)のSageMaker Model Monitorは、**SageMakerエンドポイントにデプロイしたモデル**の入出力を対象にした監視サービスであり、Bedrockのマネージド基盤モデル呼び出し（SageMakerエンドポイントを経由しない呼び出し）には標準では統合されない。Bedrockの呼び出しログをSageMaker Model Monitorが読み込める形式に変換する橋渡しが必要になる。
 
 ## 試験でのひっかけポイント整理
 

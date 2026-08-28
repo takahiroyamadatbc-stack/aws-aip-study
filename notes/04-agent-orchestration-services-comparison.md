@@ -7,7 +7,7 @@
 - Bedrock Agents / Multi-Agent Collaboration / Flowsの実装詳細 → [22-bedrock-knowledge-bases-and-agents.md](22-bedrock-knowledge-bases-and-agents.md)
 - AgentCoreの構成要素（Runtime/Gateway/Memory/Identity/Observability/Evaluations）の実装詳細 → [23-bedrock-agentcore.md](23-bedrock-agentcore.md)
 - Strands Agents SDKのマルチエージェントパターン（Agents as Tools/Swarm/Graph/Workflow）とA2Aプロトコル → [24-strands-agents-sdk.md](24-strands-agents-sdk.md)
-- SageMaker Pipelinesの各Step種別・MLライフサイクル全体 → [26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)
+- SageMaker Pipelinesの各Step種別・MLライフサイクル全体 → [267-sagemaker-mlops-monitoring-pipelines-and-governance.md](267-sagemaker-mlops-monitoring-pipelines-and-governance.md)
 - Step Functionsのサービス統合パターン（`.sync`/`.waitForTaskToken`） → [200-step-functions-service-integration-patterns.md](200-step-functions-service-integration-patterns.md)
 - Step Functionsのバージョニング・デプロイ → [41-step-functions-versioning-deployment.md](41-step-functions-versioning-deployment.md)
 
@@ -195,7 +195,7 @@ Condition Step（精度が閾値超え？）
 ```
 
 - **次の処理を決める主体**: 人間（Pipeline定義＝Step群とその接続、Condition Stepの閾値も人間が設定）
-- **オーケストレーション対象**: **MLモデルのライフサイクル（前処理〜学習〜評価〜デプロイ）に特化**。Step種別（Processing/Training/Tuning/Transform/RegisterModel/Condition/Callback/Fail）の詳細は[26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)
+- **オーケストレーション対象**: **MLモデルのライフサイクル（前処理〜学習〜評価〜デプロイ）に特化**。Step種別（Processing/Training/Tuning/Transform/RegisterModel/Condition/Callback/Fail）の詳細は[267-sagemaker-mlops-monitoring-pipelines-and-governance.md](267-sagemaker-mlops-monitoring-pipelines-and-governance.md)
 - **Agentとの関係**: **Agentそのものを複数動かす用途には使わない**。「Agentが呼び出す分類モデルを学習・評価・デプロイする」パイプライン、あるいはAgentCore/Bedrockの本番運用中にModel Monitorのドリフト検知をトリガーに再学習を回す（CT）パイプラインとして、Agentシステムの**裏側**で使われる
 - **典型シーン**: 「社内問い合わせの初期分類器（どの部門宛かを判定するモデル）を継続的に再学習・再デプロイする」といった、GenAI/Agentシステムを支える**MLOpsの中核**
 

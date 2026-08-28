@@ -149,7 +149,7 @@ aws bedrock create-evaluation-job \
 
 ### SageMaker Clarifyとの関係（誤答の罠）
 
-SageMaker Clarifyは[26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)で扱う通り、**SHAPアルゴリズムによる特徴量帰属（説明可能性）とバイアス検出**が主目的のサービス。下記「公平性の継続監視」の章で述べる通りデモグラフィックグループ間の統計的な差を測る用途では有効な選択肢になり得るが、**会話エージェントがマルチステップのタスクを達成できたか、文脈に照らして適切なツールを選択できたか、といったセマンティックな品質を定量スコア化する機能は持たない**。「エージェントの評価」という言葉だけでClarifyを連想すると誤り選択肢を選んでしまうため、**Clarify＝予測結果の説明・公平性、AgentCore Evaluations＝エージェントの振る舞い・タスク達成度**という守備範囲の違いを区別する。
+SageMaker Clarifyは[265-sagemaker-clarify.md](265-sagemaker-clarify.md)で扱う通り、**SHAPアルゴリズムによる特徴量帰属（説明可能性）とバイアス検出**が主目的のサービス。下記「公平性の継続監視」の章で述べる通りデモグラフィックグループ間の統計的な差を測る用途では有効な選択肢になり得るが、**会話エージェントがマルチステップのタスクを達成できたか、文脈に照らして適切なツールを選択できたか、といったセマンティックな品質を定量スコア化する機能は持たない**。「エージェントの評価」という言葉だけでClarifyを連想すると誤り選択肢を選んでしまうため、**Clarify＝予測結果の説明・公平性、AgentCore Evaluations＝エージェントの振る舞い・タスク達成度**という守備範囲の違いを区別する。
 
 ## 「公平性の継続監視」という要件ではSageMaker Clarify/Model Monitorが必要になる
 
@@ -166,15 +166,11 @@ Bedrockベースのアプリケーションであっても、**「デモグラ�
 
 つまりBedrock Model Evaluationは「開発中に、どのプロンプト/モデルが良いかを一度確かめる」ための評価ツールであり、「本番運用中、継続的に公平性が保たれているかを監視し続ける」ための運用ツールではない。「評価はいずれもバッチジョブ（非同期）」という上記「試験の勘所」の指摘とも整合する整理。
 
-この役割分担は[22-bedrock-knowledge-bases-and-agents.md](22-bedrock-knowledge-bases-and-agents.md)で述べた「SageMaker Model MonitorはBedrockのマネージド呼び出しに直接は統合されない」という制約とセットで理解する必要がある。**SageMaker Model Monitor自体はSageMakerエンドポイントのData Captureに依存するため、Bedrockの呼び出しを自動キャプチャする機能は持たない**が、**SageMaker Clarifyのバイアスドリフト分析ジョブは、任意にS3へ配置したデータに対して実行できる**。そのため、アプリケーション側でBedrockのプロンプト・応答・デモグラフィック属性をS3へログとして保存しておけば、その入出力データをClarifyのバイアスドリフト分析にかけ、結果をCloudWatchメトリクス（`bias_metric_CI`のような命名規則）として発行し、CloudWatchアラーム・ダッシュボードにつなげる、という構成が成立する。**「Bedrock単体では足りない機能を、SageMaker側の機能（Clarify）で補う」という設計パターン**として押さえておく。
+この役割分担は[267-sagemaker-mlops-monitoring-pipelines-and-governance.md](267-sagemaker-mlops-monitoring-pipelines-and-governance.md)のSageMaker Model Monitorの節と合わせて理解する（Model MonitorはSageMakerエンドポイントのData Captureに依存しBedrock呼び出しを自動キャプチャできないが、Clarifyのバイアス分析ジョブは任意のS3データに実行できるため、S3ログ経由でClarifyを組み合わせる設計が成立する。**「Bedrock単体では足りない機能を、SageMaker側の機能（Clarify）で補う」という設計パターン**として押さえておく）。
 
-### SageMaker Clarifyの提供状況に関する注意（2026年7月30日〜新規顧客への提供終了）
+### SageMaker Clarifyの提供状況に関する注意
 
-[26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)で触れた通り、SageMaker Clarifyは**2026年7月30日以降、新規顧客への新規提供が終了**する。**既存に利用していた顧客は引き続き利用でき、「サービスが完全に終了する（EOL）」わけではない**点に注意（サービス終了と新規提供終了は別物）。この設問自体は現行のAWS試験問題としてSageMaker Clarifyのバイアスドリフトモニタリングを正解として扱っており、当面の試験知識としては「Bedrockで足りない継続的な公平性監視は、SageMaker Clarifyで補う」という理解で問題ない。
-
-ただし実務上は、AWSが提示する代替手段（**SageMaker AI基盤上で動くオープンソースの監視ソリューション**＝SageMaker AI MLflow Apps + Evidently AI、**Amazon CloudWatch**によるメトリクス・アラート発行、の組み合わせ）への段階的な移行を見据える必要がある。「今後はオープンソースのサービスを利用する」という理解の方向性は正しいが、正確には**「SageMaker AI基盤上でEvidently AI等のOSSツールを組み合わせて自前実装する」**という中身まで押さえておくと、実務・試験の両方で誤解しにくい（単なる「オープンソースサービス」ではなく、AWSマネージドサービス群＋OSSライブラリの組み合わせという構成）。
-
-**Amazon QuickSightは必須ではない**点に注意。AWSが公開する7つの参照実装（[26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)参照）のうち、QuickSightのガバナンスダッシュボードを使うのは「Real-Time Inference Monitoring with QuickSight Dashboards」の1つだけで、他はSNSのみの軽量通知（ダッシュボードなし）やAmazon Managed Grafanaを使う構成もある。QuickSightは「経営層向けの継続的なガバナンスダッシュボード」が要件に含まれる場合の選択肢の一つであり、CloudWatchダッシュボードだけで完結させる構成（今回の問題46の正解もこちら）も成立する。
+SageMaker Clarifyは2026年7月30日以降、新規顧客への新規提供が終了する（既存顧客は継続利用可）。詳細な提供終了スコープ・代替手段（Evidently AI等でのOSS自前実装）・QuickSightが必須ではない理由（7つの参照実装のうち採用は1つのみ、今回の問題46の正解もCloudWatchダッシュボードのみで完結する構成）は[265-sagemaker-clarify.md](265-sagemaker-clarify.md)を参照。試験知識としては「Bedrockで足りない継続的な公平性監視は、SageMaker Clarifyで補う」という理解で当面問題ない。
 
 ## 試験の勘所
 

@@ -119,7 +119,7 @@ UC BerkeleyのAMPLabで開発された、Hadoop MapReduceの後継となる**イ
 ### AWSでの位置づけ
 
 - **Amazon EMR**上で最も主流の処理エンジン。ETL、機械学習の前処理・特徴量エンジニアリング、バッチ分析に使われる
-- **SageMaker Processing**からもSparkコンテナを指定して大規模データの分散前処理を実行できる（[26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)参照）
+- **SageMaker Processing**からもSparkコンテナを指定して大規模データの分散前処理を実行できる（[261-sagemaker-data-collection-and-preparation.md](261-sagemaker-data-collection-and-preparation.md)参照）
 - **AWS Glue**のETLジョブは内部的にApache Spark（PySpark）で実行される。Glueは「サーバーレスなSpark実行環境 + データカタログ」と捉えると理解しやすい
 - 機械学習ライブラリ**MLlib**を含み、Spark上で分散学習を行うこともできる
 

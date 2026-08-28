@@ -18,7 +18,7 @@ FM呼び出し（Bedrock）、カスタムモデル、プロンプト管理、RA
 | **Strands Agents SDK** | アプリコード側の管理。SDK自体はデプロイ機構を持たない | なし（ホスト先に依存） | ✗（ホスト先＝Lambda/ECS/AgentCore Runtime等の機構にそのまま乗る） |
 | **AgentCore Runtime** | Runtimeのデプロイ単位 | Runtime version／endpoint | 要確認（AgentCore固有の管理面。詳細は[23-bedrock-agentcore.md](23-bedrock-agentcore.md)参照） |
 | **AWS Step Functions**（GenAIオーケストレーション基盤として使う場合） | ステートマシンバージョン（発行時点のスナップショット） | **バージョン＋エイリアス＋RoutingConfiguration**。詳細は[41-step-functions-versioning-deployment.md](41-step-functions-versioning-deployment.md)参照 | ○ ネイティブ（ALL_AT_ONCE／LINEAR／CANARY＋CloudWatchアラームでの自動ロールバック） |
-| **SageMakerエンドポイント** | Production Variant／Inference Component | Model Registryのモデルバージョン＋承認ステータス（詳細は[26-sagemaker-ai-ml-pipeline.md](26-sagemaker-ai-ml-pipeline.md)参照） | ○ ネイティブ（**Deployment Guardrails**、後述） |
+| **SageMakerエンドポイント** | Production Variant／Inference Component | Model Registryのモデルバージョン＋承認ステータス（詳細は[264-sagemaker-experiments-and-model-registry.md](264-sagemaker-experiments-and-model-registry.md)参照） | ○ ネイティブ（**Deployment Guardrails**、後述） |
 
 ## Bedrockの生FM呼び出しに段階移行機構がない、という重要ポイント
 

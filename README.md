@@ -100,6 +100,8 @@ aws resourcegroupstaggingapi get-resources \
 - `40`〜`49`: コンテンツ分野4 GenAIアプリケーションの運用効率と最適化
 - `50`〜`59`: コンテンツ分野5 テスト、検証、トラブルシューティング
 
+各帯（10個の番号）を使い切った場合は10倍した3桁の拡張帯（例: `20`〜`29`→`200`〜`209`）を使う。拡張帯の中でさらに1サービスを機能ごとに深掘りする場合の「+60 サービス単位深掘り帯」ルール（例: `260`〜`269`＝Amazon SageMaker AI関連）は[CLAUDE.md](CLAUDE.md)を参照。
+
 | Note | テーマ | 状態 |
 |------|--------|------|
 | [04-agent-orchestration-services-comparison.md](notes/04-agent-orchestration-services-comparison.md) | Step Functions/Bedrock Flows/Multi-Agent Collaboration/SageMaker Pipelines/AgentCoreの位置づけ比較（誰が次の処理を決めるか、事前定義ワークフローvs実行時判断） | 未読 |
@@ -111,5 +113,16 @@ aws resourcegroupstaggingapi get-resources \
 | [50-model-evaluation.md](notes/50-model-evaluation.md) | Bedrock Model Evaluation（自動評価/人間評価/RAG評価の使い分け、組み込み指標、LLM-as-a-judge） | 未読 |
 | [51-bedrock-api-errors.md](notes/51-bedrock-api-errors.md) | Bedrock APIエラー（429/400/503/403/404）の原因と対処、リトライ設計の指針 | 未読 |
 | [52-context-prompt-issues.md](notes/52-context-prompt-issues.md) | コンテキスト・プロンプトの問題と対処（コンテキストウィンドウオーバーフロー、出力途中終了、モデルバージョン差異、プロバイダー間スキーマ差異） | 未読 |
+| [200-step-functions-service-integration-patterns.md](notes/200-step-functions-service-integration-patterns.md) | Step Functionsのサービス統合パターン（Request Response/Run a Job/Wait for Callback）とヒューマンインザループ | 未読 |
+| [201-ai-service-deployment-strategies.md](notes/201-ai-service-deployment-strategies.md) | AIサービス横断のデプロイ・トラフィック移行戦略（Bedrock/SageMaker/Agentsのバージョニング・カナリア・ロールバック比較） | 未読 |
+| [202-amplify-ai-kit.md](notes/202-amplify-ai-kit.md) | AWS Amplify AI Kit（Conversation route/Generation route、フルスタックでのBedrock統合） | 未読 |
+| [260-sagemaker-ml-pipeline-overview.md](notes/260-sagemaker-ml-pipeline-overview.md) | SageMaker AI機能索引とMLパイプライン5段階の全体像（260番台各ノートへのハブ） | 未読 |
+| [261-sagemaker-data-collection-and-preparation.md](notes/261-sagemaker-data-collection-and-preparation.md) | データ収集（Ground Truth）とデータの前処理・分析（EDA/クレンジング/エンコーディング/特徴量エンジニアリング） | 未読 |
+| [262-sagemaker-feature-store.md](notes/262-sagemaker-feature-store.md) | SageMaker Feature Store（Online/Offline Store、Point-in-Time結合、training-serving skew対策） | 未読 |
+| [263-sagemaker-training-and-tuning.md](notes/263-sagemaker-training-and-tuning.md) | Automatic Model Tuning（HPO）と正則化 | 未読 |
+| [264-sagemaker-experiments-and-model-registry.md](notes/264-sagemaker-experiments-and-model-registry.md) | SageMaker Experiments（試行管理）とModel Registry（承認ワークフロー） | 未読 |
+| [265-sagemaker-clarify.md](notes/265-sagemaker-clarify.md) | SageMaker Clarify（pre/post-trainingバイアス、SHAP説明可能性、提供終了情報） | 未読 |
+| [266-sagemaker-deployment-and-inference.md](notes/266-sagemaker-deployment-and-inference.md) | SageMaker AIのデプロイ先・リアルタイム/バッチ推論・LLMデプロイ（LMI）・エッジデプロイ（Neo+Greengrass） | 未読 |
+| [267-sagemaker-mlops-monitoring-pipelines-and-governance.md](notes/267-sagemaker-mlops-monitoring-pipelines-and-governance.md) | MLOps（CT）、SageMaker Model Monitor、SageMaker Pipelines、Role Manager | 未読 |
 
 状態は `未読` / `済` のいずれかを記載する。新しいNoteを追加したら表に1行追加する。

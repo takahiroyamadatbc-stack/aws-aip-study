@@ -116,6 +116,7 @@ aws resourcegroupstaggingapi get-resources \
 | [200-step-functions-service-integration-patterns.md](notes/200-step-functions-service-integration-patterns.md) | Step Functionsのサービス統合パターン（Request Response/Run a Job/Wait for Callback）とヒューマンインザループ | 未読 |
 | [201-ai-service-deployment-strategies.md](notes/201-ai-service-deployment-strategies.md) | AIサービス横断のデプロイ・トラフィック移行戦略（Bedrock/SageMaker/Agentsのバージョニング・カナリア・ロールバック比較） | 未読 |
 | [202-amplify-ai-kit.md](notes/202-amplify-ai-kit.md) | AWS Amplify AI Kit（Conversation route/Generation route、フルスタックでのBedrock統合） | 未読 |
+| [203-mcp-server-hosting-on-aws.md](notes/203-mcp-server-hosting-on-aws.md) | MCPサーバーのAWSホスティングと認証（stdio/JSON-RPC/Streamable HTTPの用語整理、Lambda関数URL+SigV4 vs API GW+Cognito、公開経路の比較） | 未読 |
 | [260-sagemaker-ml-pipeline-overview.md](notes/260-sagemaker-ml-pipeline-overview.md) | SageMaker AI機能索引とMLパイプライン5段階の全体像（260番台各ノートへのハブ） | 未読 |
 | [261-sagemaker-data-collection-and-preparation.md](notes/261-sagemaker-data-collection-and-preparation.md) | データ収集（Ground Truth）とデータの前処理・分析（EDA/クレンジング/エンコーディング/特徴量エンジニアリング） | 未読 |
 | [262-sagemaker-feature-store.md](notes/262-sagemaker-feature-store.md) | SageMaker Feature Store（Online/Offline Store、Point-in-Time結合、training-serving skew対策） | 未読 |

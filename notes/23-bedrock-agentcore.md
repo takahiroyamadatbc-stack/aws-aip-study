@@ -64,6 +64,8 @@ aws bedrock-agentcore-control create-gateway-target \
   --target-configuration '{"mcp": {"lambda": {"lambdaArn": "<LAMBDA_ARN>"}}}'
 ```
 
+Gatewayを挟まずにLambda関数を直接MCPサーバーとして公開する経路（Lambda関数URL＋SigV4、API Gateway＋Cognito等）との比較は[203-mcp-server-hosting-on-aws.md](203-mcp-server-hosting-on-aws.md)を参照。
+
 ## 試験でのひっかけポイント整理
 
 - 「AgentCoreはBedrock Agentsの後継サービスで、Bedrock Agentsは非推奨になった」→ 誤り。両者は併存しており、目的が異なる（Bedrock Agents＝Bedrock内で完結するエージェントの作り方、AgentCore＝任意のフレームワークで作ったエージェントの本番運用基盤）
